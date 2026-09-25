@@ -76,6 +76,7 @@
 **Track:** Tempo.
 
 **Pitch:** A diaspora parent sends money home to family, or a parent funds a teen, over stablecoin rails with sub-second finality. The app uses Tempo-native features:
+
 - **sponsored fees**, so recipients never need gas;
 - **virtual addresses**, giving each family member a sub-account;
 - **receive policies**, such as spending caps, merchant allowlists and savings locks.
@@ -123,9 +124,82 @@ Build **#1 (Stock Circles) on Robinhood Chain**, and keep **#2's no-loss league*
 - still compete for the general pool, where the grand prize and runner-up awards are, because judging is on product merit.
 
 **Next steps:**
+
 1. Read the [official rules PDF](https://colosseum.com/legal/Crypto%20World's%20Fair%20Hackathon%20Rules.pdf) for per-track prize amounts and eligibility.
 2. Confirm Stock Token availability for your testnet demo using the [Robinhood Chain testnet faucet](https://docs.robinhood.com/chain/).
 3. Deploy `CircleRegistry` and put the demo on testnet by the midpoint (about Sep 28).
+
+---
+
+## Deep dive: privacy-by-default investing on Robinhood Chain
+
+*Added 2026-09-21, in response to the "enshrined privacy / right defaults" framing.*
+
+### The problem this solves
+
+Robinhood Chain puts equities on a **public** ledger. Every buy, every position size and every exit is visible and permanently linked to an address that has already passed KYC. That creates consumer harms a normal brokerage doesn't have:
+
+- **Your net worth is public.** Anyone with your address (an ENS name, a Farcaster profile, a payment you once received) can read your entire portfolio and its P&L.
+- **Your intent leaks before you act.** Paradigm's [*The Key Neutrality of Baselayer Markets*](https://www.paradigm.xyz/2025/04/the-key-neutrality-of-baselayer-markets) makes the point precisely: when a trade is publicly broadcast, the information isn't "insider" information, because the trader voluntarily gave it away. Anyone building a social investing app hands that leak to every observer.
+- **It breaks the social product.** This is the flaw in idea #1 above. A verified track record is what makes group investing trustworthy, but the obvious way to build it (public positions) is exactly what makes it unsafe to use.
+
+The tweet's framing applies directly: privacy has to be **the default path in the runtime**, not a "shield" toggle that only paranoid users find. If the app has a privacy mode, almost nobody uses it, and the few who do stand out.
+
+### The product: proofs instead of positions
+
+A stock investing app on Robinhood Chain where **nothing about your position is published by default**, and where you share **claims you can prove** instead:
+
+- *"I'm up 23% this month."*
+- *"I held NVDA before I posted about it."* (timestamped, so callers can't fake being early)
+- *"My portfolio is over $10k."* (for entry into a circle or a league, without showing the amount)
+
+Three rules make it a product rather than a privacy demo:
+
+1. **No toggle.** There is one flow, and it is the private one. The user never chooses privacy, configures a pool, or sees the word "shielded".
+2. **Proofs are the social object.** You share a proof card, not a screenshot. The verification happens onchain; the numbers behind it stay with you.
+3. **Selective disclosure, not secrecy.** A viewing key hands your accountant, your tax software or a regulator the full history whenever you choose. Szabo's [*Confidential Auditing*](https://nakamotoinstitute.org/library/confidential-auditing) is the right frame, and the Cypherpunk Manifesto's line is the pitch: *"Privacy is not secrecy."*
+
+### The constraint you must design around
+
+**Stock Tokens appear to be transfer-restricted.** Reporting on early code reviews says Robinhood's tokens may only move between **whitelisted, KYC-passed addresses**, and that only verified users in permitted regions (EU customers, no U.S. persons) can mint or redeem ([Benzinga](https://www.benzinga.com/Opinion/26/08/61183371/robinhood-chain-exposes-cryptos-regulatory-blind-spot), [eco.com](https://eco.com/support/en/articles/15254023-tokenized-equities-2026-backed-dinari-robinhood)). The official [Stock Tokens docs](https://docs.robinhood.com/chain/stock-tokens/) say only that they are standard ERC-20s and don't document the restriction either way. **Verify this before you build.** It decides the architecture.
+
+If the restriction is real, a Tornado-style shielded pool holding the equity leg won't work: the pool contract would itself need to be whitelisted, and you won't get that in four weeks. So split the asset:
+
+- **Cash leg (USDC): genuinely shielded.** USDC is permissionless, so contributions, settlements, winnings and circle payouts go through a shielded pool with commitments and nullifiers. Amounts and counterparties are hidden here, which is where most of the social signal actually leaks.
+- **Equity leg: stays in the user's own whitelisted address.** Compliance is untouched. Privacy comes from never publishing anything about it, and from proving statements against it in zero knowledge.
+- **Reduce linkability where the whitelist allows it.** If Robinhood whitelists more than one address per verified user, give each user a fresh address per position. Check this; it's the difference between "unlinkable" and "just unpublished".
+
+Be honest about this in the submission. You cannot deliver unconditional privacy on a permissioned asset, and judges will respect a builder who names the boundary and ships everything inside it more than one who overclaims.
+
+### Build plan (Foundry)
+
+- `ShieldedCash.sol`: commitment and nullifier pool for USDC deposits, internal transfers and withdrawals. This is the part that is private in the strong sense.
+- `ClaimVerifier.sol`: verifies ZK proofs of statements about a user's position. Circuits in **Noir**, which has the gentlest learning curve for a Solidity developer and produces a Solidity verifier.
+- **Proof inputs:** the user's balance at a block, plus the oracle price at that block from the [Chainlink tokenized-equity feeds](https://docs.robinhood.com/chain/stock-tokens/). Anchor the historical balance with a storage proof against a block hash so nothing depends on a trusted server.
+- **Handle corporate actions or your P&L is wrong.** Stock Tokens use an onchain multiplier for splits and dividends, exposed as `uiMultiplier()` under **ERC-8056**, and raw balances stay static until redemption. Every P&L proof must apply the multiplier at both endpoints.
+- **Demo on testnet with mock tokens.** Deploy your own ERC-20 implementing `uiMultiplier()` on the [Robinhood Chain testnet](https://docs.robinhood.com/chain/), so the whitelist question never blocks the demo. Say clearly in the README that this is a mock.
+- **Onboarding:** ERC-4337, so the private path costs the user nothing to enter.
+
+### Demo script (three minutes)
+
+1. Two wallets. Wallet A buys a position. Show the explorer: **nothing readable** about size or cost basis.
+2. Wallet A posts a proof card in the circle: *"up 23% since Sep 1."* Wallet B verifies it onchain. The position stays hidden.
+3. Wallet B tries to forge the same claim. The verifier rejects it.
+4. Wallet A hands an accountant a viewing key. The full history decrypts in one click.
+
+Step 3 is the one that wins the room. It shows you can have a track record you cannot fake and cannot front-run.
+
+### Why this is a strong submission
+
+- **Nobody has claimed it, as far as the corpus shows.** Copilot's Solana corpus is full of privacy protocols (`hush`, `radr`, `oridion`, `flexanon`, `dagon`) and privacy DeFi winners (`blackpool`, 2nd in DeFi and now the Darklake accelerator company; `encifher`, 3rd in DeFi; `umbra`). Separately it is full of tokenized-equity projects (`ramelax`, `shift-stocks`, `earlybird`). **No project in the corpus combines the two.**
+- **It fixes the hole in idea #1** rather than competing with it. Build this and Stock Circles becomes one product: a group investing app whose track records are real because they're proven, and safe because they're private.
+- **It's narrative-ready.** a16z's [*6 myths about privacy on blockchains*](https://a16zcrypto.com/posts/article/6-myths-privacy-blockchains) gives you the framing, and "your brokerage account shouldn't be a public website" is a pitch a non-crypto judge understands in one sentence.
+
+### Risks to name before a judge does
+
+- **Privacy plus securities is a real regulatory tension.** Lead with selective disclosure and the viewing key, and say plainly that you are hiding balances from the public, not from an auditor.
+- **Privacy apps are crowded in general** (Copilot scores the category at 260). Your wedge is the asset class and the default, not the cryptography.
+- **Scope.** A shielded pool and a proof circuit in four weeks is aggressive. If you have to cut, cut the shielded cash pool and ship the **proof layer** alone: "prove your returns, never show your positions" is still a complete, demoable product.
 
 ---
 
