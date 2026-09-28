@@ -4,7 +4,7 @@
 - Contracts deployed with `PERIOD = 600` (a "month" is 10 minutes), so salaries visibly accrue
 - Pre-seeded: org "Acme Labs", policy $10k with 2 approvers, 1 auditor, streams of $3k (Active) and $6k (Active); keep $12k ready to create live
 - Separate browser profiles: **Employer**, **Worker**, **Landlord**, **Auditor**, each with its wallet connected and ACPs already signed
-- Keeper script running (auto-resolves policy checks)
+- `dayze-deployer` keystore unlocked only when you run deploy/seed; nothing runs in the background holding a key (the employer UI resolves policy checks)
 
 ## 2. Demo script (~3 minutes)
 1. **Problem (20s):** show a normal USDC payroll tx on Arbiscan. "Everyone can see this salary, forever."
@@ -26,7 +26,7 @@ Rehearse against live testnet at least twice; decrypt latency varies. Record a b
 - [ ] `/audit-prep` for NatSpec and hygiene
 - [ ] `grep -rn "emit" src/`: no plaintext amounts
 - [ ] Every `e*` storage write is followed by `allowThis`
-- [ ] `.env` not in git history: `git log --all -- .env` is empty
+- [ ] No keys anywhere in the repo: `git log --all -- .env` is empty, and `git grep -niE "private_key|--private-key|envUint\(\"PRIVATE"` finds nothing
 
 ## 5. Submission
 - [ ] README via `/hackathon-readme`: it mines deployments and tx hashes for evidence

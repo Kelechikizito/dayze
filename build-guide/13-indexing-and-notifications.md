@@ -14,7 +14,7 @@ Goal: faster dashboards than `getLogs`, and a public index that is safe because 
 
 ## B. Notifications
 Keep it tiny:
-- **Approvers:** the keeper script from 08 already watches `StreamPending`, so have it post to a Telegram bot or Discord webhook
+- **Approvers:** a small read-only watcher (viem `watchContractEvent` on `StreamPending`) that posts to a Telegram bot or Discord webhook. It only reads events, so it needs no key at all.
 - **Workers:** in-app banner "Credential to 0xABC… expires in 1h" computed client-side from `credentialsOf(me)`. No backend needed.
 
 ## ✅ Checkpoint

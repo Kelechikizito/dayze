@@ -24,7 +24,7 @@ s.status = Status.AwaitingPolicy;
 emit PolicyCheckRequested(id, ebool.unwrap(na));
 ```
 
-**2. Off-chain** (browser or keeper script):
+**2. Off-chain** (the employer's browser, checkpoint 10; decrypting needs no key, only submitting the tx does):
 ```ts
 const { decryptedValue, signature } = await cofhe.decryptForTx(needsApprovalHandle).withoutACP().execute();
 ```

@@ -7,7 +7,7 @@ All five contracts live on Arbitrum Sepolia against real CoFHE, seeded with demo
 
 ### 1. `script/Deploy.s.sol`
 Deploy order and wiring:
-```
+```text
 MockUSDC
 ConfidentialUSDC(usdc)                 ← forge auto-deploys + links ERC20ConfidentialLib
 AuditRegistry
@@ -19,24 +19,53 @@ payroll.setCredential(credential)
 ```
 Read `PERIOD` from env (`DEMO_PERIOD=600`), defaulting to 30 days. Write the addresses to `deployments/421614.json` with `vm.writeJson`.
 
-```bash
-source .env
-forge script script/Deploy.s.sol --rpc-url arbitrum_sepolia --broadcast --verify -vvvv
+**No private key in the script.** Use the no-argument `vm.startBroadcast()`. Forge then signs with whatever `--account` you pass on the command line:
+
+```solidity
+function run() external {
+    uint64 period = uint64(vm.envOr("DEMO_PERIOD", uint256(30 days)));
+    vm.startBroadcast();              // signer comes from --account, never from vm.envUint("PRIVATE_KEY")
+    // ... deploy + wire ...
+    vm.stopBroadcast();
+}
 ```
-If verification fails for the linked library, verify it separately with `forge verify-contract`.
 
-### 2. Seeding
-Encrypted inputs can't be made inside a Forge script on a live network, because they need the CoFHE ZK verifier. Two options:
-- **Recommended:** a small Node script (`scripts/seed.ts` using `@cofhe/sdk/node` + viem) that creates the org, sets the policy (threshold $10k), adds an auditor, shields and funds, and creates 3 streams (e.g. $3k, $6k, $12k, where the last one triggers approval).
-- Or seed through the UI once checkpoint 10 works.
+```bash
+source .env   # RPC URL, ARBISCAN_API_KEY, DEPLOYER address; no secrets
+forge script script/Deploy.s.sol \
+  --rpc-url arbitrum_sepolia \
+  --account dayze-deployer --sender $DEPLOYER \
+  --broadcast --verify -vvvv
+```
+Forge prompts for the keystore password. `--sender` must match the keystore address, or the simulation runs as the wrong address and ownership ends up wrong. If verification fails for the linked library, verify it separately with `forge verify-contract`.
 
-The Node route also doubles as your **keeper** for `resolvePolicy` (watch `PolicyCheckRequested`, then `decryptForTx`, then submit).
+### 2. Seeding (keystore-friendly)
+Encrypted inputs can't be made inside a Forge script on a live network, because they need the CoFHE ZK verifier (off-chain HTTP). So split the job: **Node only encrypts, `cast` signs.** No key ever reaches Node.
+
+**a) `frontend/scripts/encrypt.ts`** (run with `npx tsx`, reusing `frontend/`'s `@cofhe/sdk` + viem, so the root stays npm-free):
+```bash
+npx tsx scripts/encrypt.ts --value 3000000000 --account $DEPLOYER --contract $PAYROLL
+# prints: <handle> <proof>
+```
+Inside it: `createCofheClient(createCofheConfig({ supportedChains: [arbSepolia] }))` from `@cofhe/sdk/node`, connect with a viem public client plus a wallet client that carries **only the address** (`createWalletClient({ account: DEPLOYER, ... })`, a JSON-RPC account that can't sign), then `encryptInputs([Encryptable.uint64(v)]).setAccount(DEPLOYER).setConsumingContract(c).execute()`. On a live chain, encryption is a ZK proof checked by the CoFHE verifier, not a wallet signature, so no key is needed. Verify this against `@cofhe/sdk/core/encrypt/` when you build it; only the **mock** path writes transactions.
+
+**b) `script/seed.sh`** calls the helper and sends each tx with `cast`:
+```bash
+read -r H P < <(cd frontend && npx tsx scripts/encrypt.ts --value 10000000000 --account $DEPLOYER --contract $POLICY)
+cast send $POLICY "setPolicy(bytes32,bytes,address[],uint8)" $H $P "[$DEPLOYER,$APPROVER2]" 2 \
+  --account dayze-deployer --rpc-url arbitrum_sepolia
+```
+It creates the org, sets the policy (threshold $10k), adds an auditor, shields and funds, and creates 3 streams ($3k, $6k, $12k, where the last one triggers approval). Each `cast send` prompts for the password. That's about 10 prompts for the whole seed, which is fine for a one-off. If it gets tedious, `--password-file` pointing at a file **outside the repo** is an option; that's your call.
+
+**Or skip the script** and seed through the UI once checkpoint 10 works. The browser wallet signs, so no keystore is involved.
+
+**Policy resolution (`resolvePolicy`)** needs no special key: the employer UI already runs `decryptForTx` and submits it (checkpoint 10), and the function is permissionless. You don't need a background keeper holding a key. For the seeded $12k stream, open the employer console once and it resolves.
 
 ### 3. Fork tests: `test/fork/Live.t.sol`
 Goal: prove your contracts work against the **real** Task Manager, not just mocks.
 - Tag them so the default run skips them: `forge test --no-match-path "test/fork/*"` locally.
 - What's realistic on a fork: plaintext-path checks, reading deployed state, that `FHE.asEuint64(uint)` trivial encryptions and FHE ops don't revert, and that ACL grants exist (`FHE.isAllowed`).
-- What isn't: decrypting results inside Forge. The threshold network is off-chain. Do real end-to-end decrypts from the Node seed/keeper script and treat that as your integration test.
+- What isn't: decrypting results inside Forge. The threshold network is off-chain. Do real end-to-end decrypts through the frontend (or a `decryptForTx` call in `encrypt.ts`, which needs no key) and treat that as your integration test.
 
 ```bash
 forge test --match-path "test/fork/*" --fork-url $ARBITRUM_SEPOLIA_RPC_URL -vv
@@ -54,8 +83,9 @@ forge test --match-path "test/fork/*" --fork-url $ARBITRUM_SEPOLIA_RPC_URL -vv
 
 ## Pitfalls
 - Arbitrum Sepolia gas estimation for FHE calls can be low; bump the gas limit if txs run out of gas.
-- `.env` must never be committed. Check again before pushing.
+- Never `vm.envUint("PRIVATE_KEY")`, never `--private-key`. If a tutorial snippet uses either, replace it with `vm.startBroadcast()` + `--account`.
+- `--sender` mismatch with the keystore address makes simulation and broadcast disagree. Keep `DEPLOYER` in `.env` in sync.
 - Redeploying changes addresses. Re-run the export every time.
 
 ## Commit
-`feat: deploy scripts, seed/keeper script, fork tests, frontend ABI export`
+`feat: keystore-based deploy + seed scripts, fork tests, frontend ABI export`
