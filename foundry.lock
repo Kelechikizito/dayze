@@ -1,4 +1,19 @@
 {
+  "lib/cofhe-contracts": {
+    "tag": {
+      "name": "v0.2.0",
+      "rev": "be9ad566b09183230b64aa02d272aad4c07e9f83"
+    }
+  },
+  "lib/cofhesdk": {
+    "rev": "8bda9b39d39d9cf2969305ed20227edeb010f0c6"
+  },
+  "lib/fhenix-confidential-contracts": {
+    "tag": {
+      "name": "v0.4.0",
+      "rev": "5138cb8644b19b24a75caf3f383a17457e823e16"
+    }
+  },
   "lib/forge-std": {
     "tag": {
       "name": "v1.16.2",
@@ -7,8 +22,14 @@
   },
   "lib/openzeppelin-contracts": {
     "tag": {
-      "name": "v5.7.0",
-      "rev": "cab19933c33c2ad1d4c7a84864a3601dddfd16f3"
+      "name": "v5.4.0",
+      "rev": "c64a1edb67b6e3f4a15cca8909c9482ad33a02b0"
+    }
+  },
+  "lib/openzeppelin-contracts-upgradeable": {
+    "tag": {
+      "name": "v5.4.0",
+      "rev": "e725abddf1e01cf05ace496e950fc8e243cc7cab"
     }
   }
 }
