@@ -34,7 +34,7 @@ contract ConfidentialUSDC is FHERC20ERC20Wrapper {
     {}
 }
 ```
-Open `FHERC20ERC20Wrapper.sol` and check whether any functions need an explicit `override(...)` in your concrete contract. The compiler will tell you.
+Verified: this compiles as-is with the forge-installed `v0.4.0` and the remappings from 01. No extra `override(...)` is needed.
 
 ### Library linking
 The wrapper `delegatecall`s an external library, `ERC20ConfidentialLib`. **Forge links and deploys external libraries automatically** in `forge test` and `forge script`, so there's nothing to do until you deploy (checkpoint 08). If you ever deploy with raw `forge create`, pass `--libraries`.

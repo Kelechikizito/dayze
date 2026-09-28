@@ -4,9 +4,12 @@ A step-by-step path from an empty Foundry repo to the demo described in [`../arc
 
 Each checkpoint gives you the **goal, interfaces, the tricky CoFHE snippets, tests to write, and a "done when" checklist**. You write the code. Don't move on until the ✅ checkpoint passes.
 
-> **API versions this guide was written against (checked 2026-09-28):**
-> `@fhenixprotocol/cofhe-contracts@0.2.0`, `@cofhe/foundry-plugin@0.7.1`, `@cofhe/mock-contracts@0.7.1`, `@cofhe/sdk@0.7.1`, `@cofhe/react@0.7.1`, `fhenix-confidential-contracts@0.4.0`.
-> CoFHE moves fast. If a function name below doesn't compile, grep the package source in `node_modules/` before anything else.
+> **Versions this guide was written against (checked 2026-09-28):**
+> Contracts (all via `forge install` into `lib/`, no npm): `cofhe-contracts v0.2.0`, `cofhesdk` @ `8bda9b3` (foundry-plugin + mock-contracts 0.7.1), `fhenix-confidential-contracts v0.4.0`, OpenZeppelin `v5.4.0`.
+> Frontend (npm, inside `frontend/` only): `@cofhe/sdk@0.7.1`, `@cofhe/react@0.7.1`.
+> CoFHE moves fast. If a function name below doesn't compile, grep the source in `lib/` before anything else.
+>
+> Fhenix ships Hardhat-first packages. [01-setup.md](01-setup.md) explains the remappings that make them work under pure Foundry.
 
 ## Things that changed from older CoFHE tutorials
 
