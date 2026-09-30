@@ -22,9 +22,11 @@ Read `PERIOD` from env (`DEMO_PERIOD=600`), defaulting to 30 days. Write the add
 **No private key in the script.** Use the no-argument `vm.startBroadcast()`. Forge then signs with whatever `--account` you pass on the command line:
 
 ```solidity
+/// @notice Deploys and wires every Dayze contract
+/// @dev Signer comes from `--account`, never from `vm.envUint("PRIVATE_KEY")`. Set `DEMO_PERIOD` for short demo months.
 function run() external {
     uint64 period = uint64(vm.envOr("DEMO_PERIOD", uint256(30 days)));
-    vm.startBroadcast();              // signer comes from --account, never from vm.envUint("PRIVATE_KEY")
+    vm.startBroadcast();
     // ... deploy + wire ...
     vm.stopBroadcast();
 }

@@ -5,40 +5,98 @@ Orgs, encrypted vaults, streams, lazy accrual and no-leak withdrawals. Approvals
 
 ## Data model
 ```solidity
-enum Status { None, AwaitingPolicy, Pending, Active, Cancelled }
+// ============================================
+// Type Declarations
+// ============================================
 
-struct Org {
-    string name;             // shown on credentials
-    bool exists;
-    euint64 vault;           // payer's encrypted funded balance
+/// @notice Lifecycle of a stream (AwaitingPolicy and Pending are used from 06)
+enum Status {
+    None,
+    AwaitingPolicy,
+    Pending,
+    Active,
+    Cancelled
 }
 
+/// @notice A payer's organisation and its encrypted funded balance
+struct Org {
+    string name; // shown on credentials
+    bool exists;
+    euint64 vault; // payer's encrypted funded balance
+}
+
+/// @notice One salary stream from a payer to a payee
 struct Stream {
     address payer;
     address payee;
     euint64 ratePerSecond;
     euint64 withdrawn;
-    uint64 startTime;        // set when it becomes Active
+    uint64 startTime; // set when it becomes Active
     Status status;
-    ebool needsApproval;     // used in 06
+    ebool needsApproval; // used in 06
 }
 
-uint64 public immutable PERIOD;   // 30 days in prod, e.g. 600 (10 min) for the demo
+// ============================================
+// State Variables
+// ============================================
+
+/// @notice Length of one pay period in seconds: 30 days in prod, e.g. 600 (10 min) for the demo
+uint64 public immutable PERIOD;
 ```
 
 **Make `PERIOD` a constructor argument.** The whole demo depends on "a month" being a few minutes (architecture §9). `IncomeCredential` reads the same value.
 
 ## Interface
 ```solidity
+// ---- external ----
+
+/// @notice Registers the caller as a payer with a display name
+/// @param name Org name shown on credentials
 function createOrg(string calldata name) external;
-function fundVault(externalEuint64 amount, bytes calldata proof) external;  // pulls cUSDC
+
+/// @notice Pulls encrypted cUSDC from the caller into their vault
+/// @dev Caller must first call `cusdc.setOperator(payroll, until)`
+/// @param amount Encrypted amount to fund
+/// @param proof Proof that verifies `amount`
+function fundVault(externalEuint64 amount, bytes calldata proof) external;
+
+/// @notice Starts an encrypted salary stream from the caller to `payee`
+/// @param payee The worker being paid
+/// @param monthly Encrypted monthly salary
+/// @param proof Proof that verifies `monthly`
+/// @return id The new stream's id
 function createStream(address payee, externalEuint64 monthly, bytes calldata proof) external returns (uint256 id);
+
+/// @notice Withdraws up to the accrued, unwithdrawn amount; pays 0 instead of reverting on over-withdrawal
+/// @param id The stream to withdraw from
+/// @param amount Encrypted amount requested
+/// @param proof Proof that verifies `amount`
 function withdraw(uint256 id, externalEuint64 amount, bytes calldata proof) external;
-function cancelStream(uint256 id) external;          // payer only
-// views
+
+/// @notice Cancels a stream and freezes accrual. Payer only.
+/// @param id The stream to cancel
+function cancelStream(uint256 id) external;
+
+// ---- view & pure ----
+
+/// @notice Returns a stream by id
+/// @param id The stream to look up
+/// @return The stream
 function getStream(uint256 id) external view returns (Stream memory);
-function streamsOfPayer(address) external view returns (uint256[] memory);
-function streamsOfPayee(address) external view returns (uint256[] memory);
+
+/// @notice Returns the ids of all streams a payer created
+/// @param payer The payer to look up
+/// @return The stream ids
+function streamsOfPayer(address payer) external view returns (uint256[] memory);
+
+/// @notice Returns the ids of all streams paying a payee
+/// @param payee The payee to look up
+/// @return The stream ids
+function streamsOfPayee(address payee) external view returns (uint256[] memory);
+
+/// @notice Returns the handle to a payer's encrypted vault balance
+/// @param payer The payer to look up
+/// @return The vault handle
 function vaultOf(address payer) external view returns (euint64);
 ```
 Events: `OrgCreated(payer, name)`, `VaultFunded(payer)` (**no amount**), `StreamCreated(id, payer, payee, rateHandle)`, `StreamActivated(id, startTime)`, `Withdrawn(id, withdrawnHandle)`, `StreamCancelled(id)`. Events may carry handles but never plaintext amounts.
@@ -52,9 +110,12 @@ euint64 amt = FHE.asEuint64(amount, proof);
 FHE.allowThis(amt);
 sharedEuint64 s = FHE.shareEuint64(amt, address(cusdc));
 sharedEuint64 movedShared = cusdc.confidentialTransferFrom(msg.sender, address(this), s);
-euint64 moved = FHE.receiveEuint64Param(movedShared);   // actual amount (0 if payer was short)
+euint64 moved = FHE.receiveEuint64Param(movedShared); // actual amount (0 if payer was short)
+Org storage org = s_orgs[msg.sender];
 org.vault = FHE.add(org.vault, moved);
-FHE.allowThis(org.vault); FHE.allow(org.vault, msg.sender); _allowAuditors(msg.sender, org.vault);
+FHE.allowThis(org.vault);
+FHE.allow(org.vault, msg.sender);
+_allowAuditors(msg.sender, org.vault);
 ```
 Credit the **returned** amount, not the requested one. An underfunded payer transfers 0, and you must not credit phantom money. Check the exact `sharedEuint64` return and receive semantics in `IERC7984.sol` and the FHERC20 tests.
 
@@ -69,6 +130,10 @@ Allow `rate` to: `this`, payee, payer, auditors.
 
 ### Accrual (lazy, no state change)
 ```solidity
+/// @notice Computes the total amount a stream has accrued so far
+/// @dev Lazy: no state change. Elapsed time is plaintext; only the rate is encrypted.
+/// @param s The stream
+/// @return Encrypted `ratePerSecond * elapsed`
 function _accrued(Stream storage s) internal returns (euint64) {
     uint64 elapsed = uint64(block.timestamp) - s.startTime;
     return FHE.mul(s.ratePerSecond, FHE.asEuint64(elapsed));
@@ -78,14 +143,14 @@ Elapsed time is plaintext; only the rate is encrypted (architecture §6.2).
 
 ### Withdraw: the no-leak pattern
 ```solidity
-euint64 req       = FHE.asEuint64(amount, proof);
-euint64 available = FHE.sub(_accrued(s), s.withdrawn);          // withdrawn <= accrued always
-ebool   okStream  = FHE.lte(req, available);
-ebool   okVault   = FHE.lte(req, orgs[s.payer].vault);           // underfunding guard
-euint64 pay       = FHE.select(FHE.and(okStream, okVault), req, FHE.asEuint64(0));
+euint64 req = FHE.asEuint64(amount, proof);
+euint64 available = FHE.sub(_accrued(s), s.withdrawn); // withdrawn <= accrued always
+ebool okStream = FHE.lte(req, available);
+ebool okVault = FHE.lte(req, s_orgs[s.payer].vault); // underfunding guard
+euint64 pay = FHE.select(FHE.and(okStream, okVault), req, FHE.asEuint64(0));
 
-s.withdrawn            = FHE.add(s.withdrawn, pay);
-orgs[s.payer].vault    = FHE.sub(orgs[s.payer].vault, pay);
+s.withdrawn = FHE.add(s.withdrawn, pay);
+s_orgs[s.payer].vault = FHE.sub(s_orgs[s.payer].vault, pay);
 // re-allow both new handles: this, payee (withdrawn), payer, auditors
 
 cusdc.confidentialTransfer(s.payee, FHE.shareEuint64(pay, address(cusdc)));

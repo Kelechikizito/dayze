@@ -5,20 +5,72 @@ Per Payer: an **encrypted** monthly threshold and a k-of-n approver set. Compute
 
 ## Interface
 ```solidity
+/**
+ * @title IApprovalPolicy
+ * @author Kaykay
+ * @notice Per-payer encrypted monthly threshold plus a k-of-n approver set.
+ * @dev `evaluate` returns `monthly > threshold` as an encrypted bit. Who approved is public;
+ *      the threshold and amounts never are.
+ */
 interface IApprovalPolicy {
+    // ============================================
+    // Events
+    // ============================================
+
+    /// @notice Emitted when a payer sets or replaces their policy
+    /// @param payer The payer that owns the policy
+    /// @param required Number of approvals needed
+    /// @param approverCount Number of approvers in the set
     event PolicySet(address indexed payer, uint8 required, uint256 approverCount);
+
+    /// @notice Emitted when an approver signs off on a pending stream
+    /// @param payer The payer that owns the stream
+    /// @param streamId The stream being approved
+    /// @param approver The approver who signed off
+    /// @param count Approvals so far, including this one
     event Approved(address indexed payer, uint256 indexed streamId, address indexed approver, uint8 count);
 
-    // Payer sets threshold (encrypted in browser) + approvers.
-    function setPolicy(externalEuint64 threshold, bytes calldata proof, address[] calldata approvers, uint8 required) external;
+    // ============================================
+    // Functions
+    // ============================================
 
-    // Called by DayzePayroll. Returns the ebool handle, allowed to the caller.
+    // ---- external ----
+
+    /// @notice Sets the caller's encrypted threshold and approver set
+    /// @param threshold Encrypted monthly threshold, encrypted in the browser
+    /// @param proof Proof that verifies `threshold`
+    /// @param approvers Addresses allowed to approve
+    /// @param required Approvals needed; must be > 0 and <= approvers.length
+    function setPolicy(externalEuint64 threshold, bytes calldata proof, address[] calldata approvers, uint8 required)
+        external;
+
+    /// @notice Checks whether a monthly amount needs approval. Only callable by DayzePayroll.
+    /// @param payer The payer whose policy applies
+    /// @param monthly The monthly amount, shared by payroll
+    /// @return needsApproval Encrypted `monthly > threshold`, allowed to the caller
     function evaluate(address payer, sharedEuint64 monthly) external returns (ebool needsApproval);
 
-    // Approver signs off on a pending stream.
+    /// @notice Records the caller's approval of a pending stream
+    /// @param payer The payer that owns the stream
+    /// @param streamId The stream to approve
     function approve(address payer, uint256 streamId) external;
+
+    // ---- view & pure ----
+
+    /// @notice Returns how many approvals a stream has
+    /// @param payer The payer that owns the stream
+    /// @param streamId The stream to look up
+    /// @return The approval count
     function approvalCount(address payer, uint256 streamId) external view returns (uint8);
+
+    /// @notice Returns how many approvals the payer's policy requires
+    /// @param payer The payer to look up
+    /// @return The required approval count
     function required(address payer) external view returns (uint8);
+
+    /// @notice Checks whether the payer has set a policy
+    /// @param payer The payer to look up
+    /// @return True if a policy exists
     function hasPolicy(address payer) external view returns (bool);
 }
 ```
@@ -29,22 +81,27 @@ interface IApprovalPolicy {
 ```solidity
 euint64 t = FHE.asEuint64(threshold, proof);
 FHE.allowThis(t);
-FHE.allowSender(t);            // payer can view their own policy
-policies[msg.sender].threshold = t;
+FHE.allowSender(t); // payer can view their own policy
+s_policies[msg.sender].threshold = t;
 ```
 
 **Evaluating a salary it doesn't own.** Payroll hands the monthly amount over with `FHE.shareEuint64(monthly, address(policy))`, and policy receives it:
 ```solidity
+/// @notice Checks whether a monthly amount needs approval under the payer's policy
+/// @dev Must be called directly by payroll: `receiveEuint64Param` only works when the sharer is the caller
+/// @param payer The payer whose policy applies
+/// @param sharedMonthly The monthly amount, shared by payroll
+/// @return r Encrypted `monthly > threshold`; always false if the payer has no policy
 function evaluate(address payer, sharedEuint64 sharedMonthly) external onlyPayroll returns (ebool r) {
     euint64 monthly = FHE.receiveEuint64Param(sharedMonthly);
-    Policy storage p = policies[payer];
+    Policy storage p = s_policies[payer];
     if (!p.exists) {
         r = FHE.asEbool(false);
     } else {
         r = FHE.gt(monthly, p.threshold);
     }
     FHE.allowThis(r);
-    FHE.allow(r, msg.sender);   // payroll needs it
+    FHE.allow(r, msg.sender); // payroll needs it
 }
 ```
 `receiveEuint64Param` only works when the sharer is the **direct caller**, which is why this must be `onlyPayroll` and called straight from `DayzePayroll`. Set the payroll address once with a one-shot `setPayroll` (owner-only, then locked) or pass it into the constructor with CREATE address prediction.

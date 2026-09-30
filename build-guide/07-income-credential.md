@@ -5,27 +5,57 @@ A worker issues "earns ≥ $X/month" to one verifier, with an expiry. The verifi
 
 ## Data model
 ```solidity
+/// @notice A one-bit income proof issued by a payee to a single verifier
 struct Credential {
     address payee;
     address payer;
     address verifier;
-    uint64  threshold;      // plaintext: the verifier asked for it, so it's not secret
-    uint64  issuedAt;
-    uint64  expiresAt;
-    uint64  streamActiveSince;
-    bool    revoked;
-    ebool   ok;
+    uint64 threshold; // plaintext: the verifier asked for it, so it's not secret
+    uint64 issuedAt;
+    uint64 expiresAt;
+    uint64 streamActiveSince;
+    bool revoked;
+    ebool ok;
 }
 ```
 Also expose, for the verifier page: org name (from payroll), `streamActiveSince`, and optionally "months funded". Architecture §8 lists this as the fake-employer mitigation. Months funded needs vault ÷ monthly, which is encrypted, so **skip it in v0.1** or compute another encrypted bit (`vault >= monthly * 3`) and allow it to the verifier too.
 
 ## Interface
 ```solidity
+// ---- external ----
+
+/// @notice Issues an "earns >= threshold per month" credential to one verifier
+/// @param streamId The caller's active stream
+/// @param verifier The only address allowed to read the result bit
+/// @param threshold Plaintext monthly amount the verifier asked about
+/// @param expiresAt Timestamp after which the credential is no longer valid
+/// @return id The new credential's id
 function issue(uint256 streamId, address verifier, uint64 threshold, uint64 expiresAt) external returns (uint256 id);
-function revoke(uint256 id) external;                  // payee only
-function isValid(uint256 id) external view returns (bool);   // !revoked && now < expiresAt
+
+/// @notice Revokes a credential. Payee only.
+/// @param id The credential to revoke
+function revoke(uint256 id) external;
+
+// ---- view & pure ----
+
+/// @notice Checks whether a credential is unrevoked and unexpired
+/// @param id The credential to check
+/// @return True if `!revoked && now < expiresAt`
+function isValid(uint256 id) external view returns (bool);
+
+/// @notice Returns a credential by id
+/// @param id The credential to look up
+/// @return The credential
 function get(uint256 id) external view returns (Credential memory);
+
+/// @notice Returns the ids of credentials a payee issued
+/// @param payee The payee to look up
+/// @return The credential ids
 function credentialsOf(address payee) external view returns (uint256[] memory);
+
+/// @notice Returns the ids of credentials issued to a verifier
+/// @param verifier The verifier to look up
+/// @return The credential ids
 function credentialsFor(address verifier) external view returns (uint256[] memory);
 ```
 Events: `CredentialIssued(id, payee, verifier, threshold, expiresAt)`, `CredentialRevoked(id)`. The threshold is fine to emit; the result bit is not.
@@ -34,17 +64,25 @@ Events: `CredentialIssued(id, payee, verifier, threshold, expiresAt)`, `Credenti
 `IncomeCredential` must be **allowed on the stream's rate handle** to compute on it. In `DayzePayroll`, when a stream is created, also `FHE.allow(rate, address(credential))` (payroll takes the credential address as a constructor arg or one-shot setter).
 
 ```solidity
+/// @notice Issues an "earns >= threshold per month" credential to one verifier
+/// @dev Expiry ends validity but can't make a verifier forget a bit it already decrypted.
+///      The result is as of issuance. It proves what a contract pays, not who the employer is.
+/// @param streamId The caller's active stream
+/// @param verifier The only address allowed to read the result bit
+/// @param threshold Plaintext monthly amount the verifier asked about
+/// @param expiresAt Timestamp after which the credential is no longer valid
+/// @return id The new credential's id
 function issue(uint256 streamId, address verifier, uint64 threshold, uint64 expiresAt) external returns (uint256 id) {
     IDayzePayroll.Stream memory s = payroll.getStream(streamId);
-    if (s.payee != msg.sender) revert NotPayee();
-    if (s.status != IDayzePayroll.Status.Active) revert StreamNotActive();
-    if (expiresAt <= block.timestamp) revert BadExpiry();
+    if (s.payee != msg.sender) revert IncomeCredential__NotPayee();
+    if (s.status != IDayzePayroll.Status.Active) revert IncomeCredential__StreamNotActive();
+    if (expiresAt <= block.timestamp) revert IncomeCredential__BadExpiry();
 
-    euint64 monthly = FHE.mul(s.ratePerSecond, FHE.asEuint64(PERIOD));   // same PERIOD as payroll
+    euint64 monthly = FHE.mul(s.ratePerSecond, FHE.asEuint64(PERIOD)); // same PERIOD as payroll
     ebool ok = FHE.gte(monthly, FHE.asEuint64(threshold));
     FHE.allowThis(ok);
-    FHE.allow(ok, verifier);           // ONLY the verifier, not the payee
-    ...store, emit
+    FHE.allow(ok, verifier); // ONLY the verifier, not the payee
+    // ...store, emit
 }
 ```
 Why not `allowSender`? The payee already knows their salary, and granting them the bit changes nothing. But keeping `ok` verifier-only makes the access list easy to explain on stage.

@@ -113,23 +113,60 @@ The `0xA11CE`-style constants in the tests are throwaway **test-only** keys that
 
 ```solidity
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity 0.8.25;
 
+// ============================================
+// Imports
+// ============================================
 import {FHE, euint64, externalEuint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 
-contract HelloFHE {
-    euint64 public stored;
+// ============================================
+// Interfaces, Libraries, Contract
+// ============================================
 
-    function set(externalEuint64 v, bytes calldata proof) external {
-        stored = FHE.asEuint64(v, proof);
-        FHE.allowThis(stored);        // contract can reuse it in later txs
-        FHE.allowSender(stored);      // caller can unseal it
+/**
+ * @title HelloFHE
+ * @author Kaykay
+ * @notice Throwaway smoke test that stores an encrypted number and can double it.
+ * @dev Proves the CoFHE pipeline and ACL work under Forge mocks. Every FHE operation
+ *      returns a new handle, so every new handle needs fresh `allowThis` and `allowSender` calls.
+ */
+contract HelloFHE {
+    // ============================================
+    // State Variables
+    // ============================================
+
+    /// @notice Handle to the encrypted stored value
+    euint64 private s_stored;
+
+    // ============================================
+    // Functions
+    // ============================================
+
+    // ---- external ----
+
+    /// @notice Stores an encrypted value supplied by the caller
+    /// @param value Encrypted input handle, bound to this contract
+    /// @param proof Proof that verifies `value`
+    function set(externalEuint64 value, bytes calldata proof) external {
+        s_stored = FHE.asEuint64(value, proof);
+        FHE.allowThis(s_stored); // contract can reuse it in later txs
+        FHE.allowSender(s_stored); // caller can unseal it
     }
 
+    /// @notice Doubles the stored encrypted value
     function double() external {
-        stored = FHE.add(stored, stored);
-        FHE.allowThis(stored);        // EVERY new handle needs fresh allows
-        FHE.allowSender(stored);
+        s_stored = FHE.add(s_stored, s_stored);
+        FHE.allowThis(s_stored); // EVERY new handle needs fresh allows
+        FHE.allowSender(s_stored);
+    }
+
+    // ---- view & pure ----
+
+    /// @notice Returns the handle to the encrypted stored value
+    /// @return The `euint64` handle; only allowed addresses can unseal it
+    function getStored() external view returns (euint64) {
+        return s_stored;
     }
 }
 ```
@@ -138,32 +175,62 @@ contract HelloFHE {
 
 ```solidity
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity 0.8.25;
 
+// ============================================
+// Imports
+// ============================================
 import {CofheTest} from "@cofhe/foundry-plugin/CofheTest.sol";
 import {CofheClient} from "@cofhe/foundry-plugin/CofheClient.sol";
 import {externalEuint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import {HelloFHE} from "../src/HelloFHE.sol";
 
-contract HelloFHETest is CofheTest {
-    CofheClient alice;
-    HelloFHE hello;
-    uint256 constant ALICE_PK = 0xA11CE;
+// ============================================
+// Interfaces, Libraries, Contract
+// ============================================
 
+/**
+ * @title HelloFHETest
+ * @author Kaykay
+ * @notice Checks that an encrypted value can be set, doubled and unsealed on CoFHE mocks.
+ * @dev `CofheTest` already inherits forge-std `Test`. `ALICE_PK` is a throwaway test-only key.
+ */
+contract HelloFHETest is CofheTest {
+    // ============================================
+    // State Variables
+    // ============================================
+
+    /// @notice Test-only private key used to sign mock encrypted inputs
+    uint256 private constant ALICE_PK = 0xA11CE;
+
+    /// @notice CoFHE client acting as alice
+    CofheClient private s_alice;
+
+    /// @notice Contract under test
+    HelloFHE private s_hello;
+
+    // ============================================
+    // Functions
+    // ============================================
+
+    // ---- public ----
+
+    /// @notice Deploys the CoFHE mocks, connects alice and deploys `HelloFHE`
     function setUp() public {
         deployMocks();
-        alice = createCofheClient();
-        alice.connect(ALICE_PK);
-        hello = new HelloFHE();
+        s_alice = createCofheClient();
+        s_alice.connect(ALICE_PK);
+        s_hello = new HelloFHE();
     }
 
+    /// @notice Setting 21 and doubling it stores an encrypted 42
     function test_setAndDouble() public {
-        (externalEuint64 h, bytes memory sig) = alice.createExternalEuint64(21, address(hello));
-        vm.startPrank(alice.account());
-        hello.set(h, sig);
-        hello.double();
+        (externalEuint64 handle, bytes memory proof) = s_alice.createExternalEuint64(21, address(s_hello));
+        vm.startPrank(s_alice.account());
+        s_hello.set(handle, proof);
+        s_hello.double();
         vm.stopPrank();
-        expectPlaintext(hello.stored(), uint64(42));
+        expectPlaintext(s_hello.getStored(), uint64(42));
     }
 }
 ```
@@ -179,7 +246,7 @@ forge test --match-contract HelloFHETest -vv
 
 - [ ] `forge build` is clean. The mock contracts emit a few warnings (unused parameter, mutability); ignore them.
 - [ ] `test_setAndDouble` passes
-- [ ] Delete the `FHE.allowThis(stored);` line in `set` and re-run: it must **fail** with `ACLNotAllowed(...)`. This proves `isolate` and the ACL are active.
+- [ ] Delete the `FHE.allowThis(s_stored);` line in `set` and re-run: it must **fail** with `ACLNotAllowed(...)`. This proves `isolate` and the ACL are active.
 - [ ] Put the line back
 - [ ] `git status` shows the new submodules under `lib/` and `.gitmodules` updated. Commit them.
 

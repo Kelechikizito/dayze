@@ -23,15 +23,37 @@ OZ `ERC20` with 6 decimals and a public `mint(address,uint256)` for demos. Deplo
 
 ### `src/ConfidentialUSDC.sol`
 ```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.25;
+
+// ============================================
+// Imports
+// ============================================
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {FHERC20} from "fhenix-confidential-contracts/FHERC20/FHERC20.sol";
 import {FHERC20ERC20Wrapper} from "fhenix-confidential-contracts/FHERC20/extensions/FHERC20ERC20Wrapper.sol";
 
+// ============================================
+// Interfaces, Libraries, Contract
+// ============================================
+
+/**
+ * @title ConfidentialUSDC
+ * @author Kaykay
+ * @notice Wraps USDC 1:1 into cUSDC, a token whose balances and transfers are encrypted.
+ * @dev All logic comes from Fhenix's `FHERC20ERC20Wrapper`. `shield` and `unshield`/`claimUnshielded`
+ *      are the only points where amounts are plaintext. Keeps USDC's 6 decimals.
+ */
 contract ConfidentialUSDC is FHERC20ERC20Wrapper {
-    constructor(IERC20 usdc)
-        FHERC20("Confidential USDC", "cUSDC", 6, "")
-        FHERC20ERC20Wrapper(usdc)
-    {}
+    // ============================================
+    // Functions
+    // ============================================
+
+    // ---- constructor ----
+
+    /// @notice Sets up cUSDC as a wrapper around the given USDC token
+    /// @param usdc The underlying 6-decimal USDC token
+    constructor(IERC20 usdc) FHERC20("Confidential USDC", "cUSDC", 6, "") FHERC20ERC20Wrapper(usdc) {}
 }
 ```
 Verified: this compiles as-is with the forge-installed `v0.4.0` and the remappings from 01. No extra `override(...)` is needed.

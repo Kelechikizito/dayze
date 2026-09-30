@@ -18,7 +18,7 @@ Active / Pending ──cancel──► Cancelled
 ```solidity
 ebool na = policy.evaluate(msg.sender, FHE.shareEuint64(monthlyAmt, address(policy)));
 FHE.allowThis(na);
-FHE.allowPublic(na);             // anyone may decrypt this ONE bit
+FHE.allowPublic(na); // anyone may decrypt this ONE bit
 s.needsApproval = na;
 s.status = Status.AwaitingPolicy;
 emit PolicyCheckRequested(id, ebool.unwrap(na));
@@ -32,22 +32,37 @@ Check the exact result field names in `@cofhe/sdk` `core/decrypt/decryptForTxBui
 
 **3. On-chain `resolvePolicy`**:
 ```solidity
+/// @notice Applies the decrypted `needsApproval` bit to a stream
+/// @dev Permissionless: the decrypt signature proves the result. Pending if true, Active if false.
+/// @param id The stream to resolve
+/// @param needsApproval The decrypted bit
+/// @param sig Decrypt signature over `(handle, needsApproval)`
 function resolvePolicy(uint256 id, bool needsApproval, bytes calldata sig) external {
-    Stream storage s = streams[id];
-    if (s.status != Status.AwaitingPolicy) revert AlreadyResolved();       // replay guard #1
-    if (!FHE.verifyDecryptResult(s.needsApproval, needsApproval, sig))      // binds to THIS handle
-        revert BadDecryptProof();
-    if (needsApproval) { s.status = Status.Pending; emit StreamPending(id); }
-    else               { _activate(s, id); }
+    Stream storage s = s_streams[id];
+    if (s.status != Status.AwaitingPolicy) revert DayzePayroll__AlreadyResolved(); // replay guard #1
+    if (!FHE.verifyDecryptResult(s.needsApproval, needsApproval, sig)) {
+        revert DayzePayroll__BadDecryptProof(); // binds to THIS handle
+    }
+    if (needsApproval) {
+        s.status = Status.Pending;
+        emit StreamPending(id);
+    } else {
+        _activate(s, id);
+    }
 }
 ```
 Anyone can call it (permissionless), since the signature is what proves the result.
 
 **4. Approvals**: `approve` lives on `ApprovalPolicy` (04). Add `activateApproved(id)` on payroll:
 ```solidity
-require(s.status == Status.Pending);
-require(policy.approvalCount(s.payer, id) >= policy.required(s.payer));
-_activate(s, id);
+/// @notice Activates a pending stream once it has enough approvals
+/// @param id The stream to activate
+function activateApproved(uint256 id) external {
+    Stream storage s = s_streams[id];
+    if (s.status != Status.Pending) revert DayzePayroll__NotPending();
+    if (policy.approvalCount(s.payer, id) < policy.required(s.payer)) revert DayzePayroll__NotEnoughApprovals();
+    _activate(s, id);
+}
 ```
 Or have the policy call back into payroll on the k-th approval. Pick one; the pull model above is simpler to test.
 
@@ -67,9 +82,9 @@ Or have the policy call back into payroll on the k-th approval. Pick one; the pu
 3. No accrual while `Pending`: warp 1 day before activation, the accrued amount counts only from activation
 
 `test/DecryptReplay.t.sol` (the dedicated suite from §8):
-1. Resolve twice → second reverts `AlreadyResolved`
-2. Stream A's `(value, sig)` on stream B → `BadDecryptProof`
-3. Correct sig, flipped bool → `BadDecryptProof`
+1. Resolve twice → second reverts `DayzePayroll__AlreadyResolved`
+2. Stream A's `(value, sig)` on stream B → `DayzePayroll__BadDecryptProof`
+3. Correct sig, flipped bool → `DayzePayroll__BadDecryptProof`
 4. Garbage sig → reverts
 5. Resolve on a cancelled stream → reverts
 
