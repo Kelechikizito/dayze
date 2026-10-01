@@ -6,6 +6,12 @@
       "sourceType": "github",
       "skillPath": "skills/colosseum-copilot/SKILL.md",
       "computedHash": "4038e366dd3bbcbc3065abc61c5cc9453b29655f2e5c390a8d3441181d6021b5"
+    },
+    "refero-design": {
+      "source": "referodesign/refero_skill",
+      "sourceType": "github",
+      "skillPath": "skills/refero-design/SKILL.md",
+      "computedHash": "b39b8c1f87664b1b63c50f5e2bbe7586b08790101920c96d9bbf75fc3a2d5a61"
     }
   }
 }
