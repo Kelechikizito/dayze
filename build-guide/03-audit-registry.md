@@ -1,10 +1,10 @@
 # 03 — AuditRegistry
 
 ## Goal
-A Payer designates auditor addresses. Every new or updated payroll handle is `FHE.allow`-ed to the Payer's **current** auditors (architecture §6.2, §7.5).
+A Payer picks auditor addresses. Every new or updated payroll handle is `FHE.allow`-ed to the Payer's **current** auditors (architecture §6.2, §7.5).
 
 ## Design
-Keep it a plain registry. **The contract that owns a handle is the one that must call `FHE.allow`**, so `AuditRegistry` can't grant access on `DayzePayroll`'s handles itself. Instead it answers "who are the auditors?" and payroll does the allowing.
+Keep it a plain registry. **Only the contract that owns a handle can call `FHE.allow` on it.** So `AuditRegistry` can't grant access to `DayzePayroll`'s handles. It just answers "who are the auditors?". Payroll does the allowing.
 
 ```solidity
 /**
@@ -58,9 +58,9 @@ interface IAuditRegistry {
     function isAuditor(address payer, address who) external view returns (bool);
 }
 ```
-Use OZ `EnumerableSet.AddressSet` per payer. Cap the set (e.g. `MAX_AUDITORS = 5`) because payroll loops over it on every handle update.
+Use one OZ `EnumerableSet.AddressSet` per payer. Cap it (e.g. `MAX_AUDITORS = 5`). Payroll loops over it on every handle update.
 
-## The pattern payroll will use (write it now, use it in 05)
+## The pattern payroll uses (write now, use in 05)
 ```solidity
 /// @notice Allows every current auditor of `payer` to read handle `h`
 /// @dev Must run in the contract that owns `h`. Call it after every new or updated payroll handle.
@@ -73,13 +73,13 @@ function _allowAuditors(address payer, euint64 h) internal {
     }
 }
 ```
-Put it in `src/libraries/AuditAccess.sol` as an `internal` library function that takes the registry as its first argument (`AuditAccess.allowAuditors(registry, payer, h)`). Internal library functions are inlined, so `FHE.allow` still runs in the contract that owns the handle, and `DayzePayroll` and `IncomeCredential` can share it. Put the interface in `src/interfaces/IAuditRegistry.sol`.
+Put it in `src/libraries/AuditAccess.sol` as an `internal` library function. The registry is the first argument (`AuditAccess.allowAuditors(registry, payer, h)`). Internal library functions are inlined, so `FHE.allow` still runs in the owning contract. `DayzePayroll` and `IncomeCredential` can both use it. Put the interface in `src/interfaces/IAuditRegistry.sol`.
 
 ## Tests: `test/unit/AuditRegistryTest.t.sol`
-1. Add, list and remove auditors; events emitted
-2. Only the payer controls their own set (bob can't add to employer's set)
+1. Add, list and remove auditors. Events emitted.
+2. Only the payer controls their set (bob can't add to employer's set)
 3. Cap enforced
-4. **Sticky access (document it, don't fix it):** a tiny harness contract in `test/mocks/AuditHarness.sol` creates handle H, allows auditors, then the auditor is removed and a new handle H2 is created. Assert the auditor is still allowed on H and not on H2 with `FHE.isAllowed` (or the mock ACL). This is the residual risk in §8. The test proves you understand it.
+4. **Sticky access (document it, don't fix it):** a small harness in `test/mocks/AuditHarness.sol` creates handle H and allows auditors. Then remove the auditor and create handle H2. Assert with `FHE.isAllowed` (or the mock ACL) that the auditor still has H but not H2. This is the known risk in §8. The test shows you understand it.
 
 ## ✅ Checkpoint
 ```bash
@@ -89,7 +89,7 @@ forge test --match-contract AuditRegistryTest -vv
 - [ ] `_allowAuditors` helper exists and is ready to import
 
 ## Pitfalls
-- `FHE.allow` on a handle your contract doesn't own reverts. Keep the allow calls in the owning contract.
+- `FHE.allow` reverts on a handle your contract doesn't own. Keep allow calls in the owning contract.
 
 ## Commit
 `feat: add AuditRegistry with capped per-payer auditor sets`

@@ -1,19 +1,17 @@
 # Dayze Build Guide
 
-A step-by-step path from an empty Foundry repo to the demo described in [`../architecture.md`](../architecture.md).
+Step-by-step path from an empty Foundry repo to the demo in [`../architecture.md`](../architecture.md).
 
-Each checkpoint gives you the **goal, interfaces, the tricky CoFHE snippets, tests to write, and a "done when" checklist**. You write the code. Don't move on until the ✅ checkpoint passes.
+Each checkpoint gives the **goal, interfaces, tricky CoFHE snippets, tests, and a "done when" list**. You write the code. Pass each ✅ checkpoint before moving on.
 
-> **Versions this guide was written against (checked 2026-09-28):**
-> Contracts (all via `forge install` into `lib/`, no npm): `cofhe-contracts v0.2.0`, `cofhesdk` @ `8bda9b3` (foundry-plugin + mock-contracts 0.7.1), `fhenix-confidential-contracts v0.4.0`, OpenZeppelin `v5.4.0`.
-> Frontend (npm, inside `frontend/` only): `@cofhe/sdk@0.7.1`, `@cofhe/react@0.7.1`.
-> CoFHE moves fast. If a function name below doesn't compile, grep the source in `lib/` before anything else.
+> **Versions used (checked 2026-09-28):**
+> Contracts (all `forge install` into `lib/`, no npm): `cofhe-contracts v0.2.0`, `cofhesdk` @ `8bda9b3` (foundry-plugin + mock-contracts 0.7.1), `fhenix-confidential-contracts v0.4.0`, OpenZeppelin `v5.4.0`.
+> Frontend (npm, only in `frontend/`): `@cofhe/sdk@0.7.1`, `@cofhe/react@0.7.1`.
+> CoFHE changes fast. If a function name fails to compile, grep the source in `lib/` first.
 >
-> Fhenix ships Hardhat-first packages. [01-setup.md](01-setup.md) explains the remappings that make them work under pure Foundry.
+> Fhenix packages are built for Hardhat. [01-setup.md](01-setup.md) shows the remappings that make them work in Foundry.
 
-## Things that changed from older CoFHE tutorials
-
-If you've read older Fhenix examples, these are different now:
+## Changes from older CoFHE tutorials
 
 | Old tutorials | Current API |
 |---|---|
@@ -25,9 +23,9 @@ If you've read older Fhenix examples, these are different now:
 
 ## Checkpoints
 
-| # | File | What you build | Est. time |
+| # | File | What you build | Time |
 |---|---|---|---|
-| 01 | [01-setup.md](01-setup.md) | Dependencies, remappings, a `HelloFHE` contract passing on CoFHE mocks | 1–2h |
+| 01 | [01-setup.md](01-setup.md) | Dependencies, remappings, a `HelloFHE` test passing on CoFHE mocks | 1–2h |
 | 02 | [02-confidential-tokens.md](02-confidential-tokens.md) | `ConfidentialToken` (any ERC20) + `ConfidentialNative` (ETH) FHERC20 wrappers | 2h |
 | 03 | [03-audit-registry.md](03-audit-registry.md) | `AuditRegistry` + the "allow to auditors" pattern | 1h |
 | 04 | [04-approval-policy.md](04-approval-policy.md) | `ApprovalPolicy`: encrypted threshold, k-of-n approvers | 2h |
@@ -42,9 +40,9 @@ If you've read older Fhenix examples, these are different now:
 | 13 | [13-indexing-and-notifications.md](13-indexing-and-notifications.md) | *Stretch:* subgraph + notifications | optional |
 | 14 | [14-demo-and-submission.md](14-demo-and-submission.md) | Demo script, security review, README, submission | 3h |
 
-**Order matters.** Contracts go bottom-up (token → registry → policy → payroll → credential), so each one is tested on mocks before anything depends on it. Don't start the frontend until checkpoint 08 gives you live addresses.
+**Order matters.** Build contracts bottom-up (token → registry → policy → payroll → credential). Test each on mocks before anything uses it. Start the frontend only after 08 gives you live addresses.
 
-**If you're short on time**, cut in this order: 13 → auditor CSV (12) → approvals UI (10, keep the contract logic) → fork tests (08, keep the deploy).
+**Short on time?** Cut in this order: 13 → auditor CSV (12) → approvals UI (10, keep the contract logic) → fork tests (08, keep the deploy).
 
 ## Progress
 
@@ -91,6 +89,6 @@ frontend/
   lib/contracts/     addresses.ts + ABIs
 ```
 
-Tests import with root-style paths (`import {X} from "src/X.sol";`). Every contract uses the pinned `pragma solidity 0.8.25;` to match `solc_version` in `foundry.toml`.
+Tests use root-style imports (`import {X} from "src/X.sol";`). Every contract uses `pragma solidity 0.8.25;` to match `solc_version` in `foundry.toml`.
 
-Use `/sol-style-guide` to scaffold each new contract so layout and NatSpec stay consistent.
+Scaffold each new contract with `/sol-style-guide` so layout and NatSpec match.

@@ -1,7 +1,7 @@
 # 05 — DayzePayroll (core)
 
 ## Goal
-Orgs, encrypted per-token vaults, multi-token streams, lazy accrual and no-leak withdrawals. Approvals are stubbed here (every stream goes straight to `Active`) and wired up in 06. This is the heart of the project, so take your time.
+Orgs, encrypted per-token vaults, multi-token streams, lazy accrual and no-leak withdrawals. Approvals are stubbed here: every stream goes straight to `Active`. 06 wires them up. This is the core of the project. Take your time.
 
 ## Data model
 ```solidity
@@ -50,11 +50,16 @@ mapping(IFHERC20 token => bool supported) public s_supportedTokens;
 mapping(address payer => mapping(IFHERC20 token => euint64 balance)) internal s_vaults;
 ```
 
-**Why an allowlist, not "any address"?** Payroll trusts the wrapper to move funds honestly. A malicious "wrapper" could report a successful pull without moving anything and then drain other payers' vaults on withdraw. Only the deployer's wrappers from 02 go in: `addToken(IFHERC20)` / `removeToken(IFHERC20)`, `onlyOwner` (OZ `Ownable`). Removing a token blocks new funding and new streams in it; existing streams keep withdrawing. Adding a new ERC20 = deploy one `ConfidentialToken` for it + `addToken`. A permissionless factory that deploys wrappers and that payroll trusts is a stretch goal.
+**Why an allowlist, not any address?** Payroll trusts the wrapper to move funds honestly. A fake "wrapper" could report a pull without moving anything, then drain other payers' vaults on withdraw.
 
-**Why `monthly`, not `ratePerSecond`?** With 6-decimal confidential units, per-second rates truncate badly for high-value assets: 1 ETH/month is `1e6 / 2_592_000 ≈ 0.39` units/s, which rounds to **0**. Store the monthly amount and accrue as `monthly × elapsed / PERIOD` in `euint128` instead (below). It's exact up to rounding down to one unit, and `IncomeCredential` compares against `monthly` directly.
+- Only the deployer's wrappers from 02 go in: `addToken(IFHERC20)` / `removeToken(IFHERC20)`, `onlyOwner` (OZ `Ownable`).
+- Removing a token blocks new funding and new streams in it. Existing streams can still withdraw.
+- New ERC20 = deploy one `ConfidentialToken` for it + `addToken`.
+- Stretch goal: a permissionless factory that deploys wrappers payroll trusts.
 
-**Make `PERIOD` a constructor argument.** The whole demo depends on "a month" being a few minutes (architecture §9).
+**Why `monthly`, not `ratePerSecond`?** With 6-decimal units, per-second rates round badly for high-value assets. 1 ETH/month is `1e6 / 2_592_000 ≈ 0.39` units/s, which rounds to **0**. So store the monthly amount and accrue `monthly × elapsed / PERIOD` in `euint128` (below). It's exact, minus at most one unit of rounding down. `IncomeCredential` also compares against `monthly` directly.
+
+**Make `PERIOD` a constructor argument.** The demo needs "a month" to be a few minutes (architecture §9).
 
 ## Interface
 ```solidity
@@ -126,12 +131,12 @@ function streamsOfPayee(address payee) external view returns (uint256[] memory);
 /// @return The vault handle
 function vaultOf(address payer, IFHERC20 token) external view returns (euint64);
 ```
-Events: `TokenAdded(token)`, `TokenRemoved(token)`, `OrgCreated(payer, name)`, `VaultFunded(payer, token)` (**no amount**), `StreamCreated(id, payer, payee, token, monthlyHandle)`, `StreamActivated(id, startTime)`, `Withdrawn(id, withdrawnHandle)`, `StreamCancelled(id)`. Events may carry handles but never plaintext amounts.
+Events: `TokenAdded(token)`, `TokenRemoved(token)`, `OrgCreated(payer, name)`, `VaultFunded(payer, token)` (**no amount**), `StreamCreated(id, payer, payee, token, monthlyHandle)`, `StreamActivated(id, startTime)`, `Withdrawn(id, withdrawnHandle)`, `StreamCancelled(id)`. Events may carry handles, never plaintext amounts.
 
 ## Key CoFHE snippets
 
 ### Funding the vault
-Payroll holds one pooled balance **per wrapper**; `s_vaults[payer][token]` is internal per-payer accounting. Never let one token's vault pay out another token's stream. The payer first calls `token.setOperator(payroll, until)` in the UI. Then:
+Payroll holds one pooled balance **per wrapper**. `s_vaults[payer][token]` tracks each payer's share. Never let one token's vault pay another token's stream. The payer first calls `token.setOperator(payroll, until)` in the UI. Then:
 ```solidity
 if (!s_supportedTokens[token]) revert DayzePayroll__UnsupportedToken();
 euint64 amt = FHE.asEuint64(amount, proof);
@@ -145,14 +150,14 @@ FHE.allowThis(vault);
 FHE.allow(vault, msg.sender);
 _allowAuditors(msg.sender, vault);
 ```
-Credit the **returned** amount, not the requested one. An underfunded payer transfers 0, and you must not credit phantom money. Check the exact `sharedEuint64` return and receive semantics in `IERC7984.sol` and the FHERC20 tests.
+Credit the **returned** amount, not the requested one. An underfunded payer transfers 0. Don't credit money that never arrived. Check how `sharedEuint64` is returned and received in `IERC7984.sol` and the FHERC20 tests.
 
 ### Creating a stream
 ```solidity
 if (!s_supportedTokens[token]) revert DayzePayroll__UnsupportedToken();
 euint64 monthlyAmt = FHE.asEuint64(monthly, proof);
 ```
-Store `monthlyAmt` on the stream and allow it to: `this`, payee, payer, auditors, and `IncomeCredential` (07). 06 also sends it to the policy.
+Store `monthlyAmt` on the stream. Allow it to `this`, payee, payer, auditors and `IncomeCredential` (07). In 06 it also goes to the policy.
 
 ### Accrual (lazy, no state change)
 ```solidity
@@ -167,7 +172,7 @@ function _accrued(Stream storage s) internal returns (euint64) {
     return FHE.asEuint64(FHE.div(total, FHE.asEuint128(PERIOD)));
 }
 ```
-Elapsed time is plaintext; only the salary is encrypted (architecture §6.2). The result rounds **down** by at most one unit, so payroll never owes more than it accrued. The cast back to `euint64` is safe while `elapsed / PERIOD` stays reasonable: 1,000,000 units/month × 100 years still fits.
+Elapsed time is plaintext. Only the salary is encrypted (architecture §6.2). The result rounds **down** by at most one unit, so payroll never owes more than accrued. The cast back to `euint64` is safe for sane `elapsed / PERIOD`: 1,000,000 units/month × 100 years still fits.
 
 ### Withdraw: the no-leak pattern
 ```solidity
@@ -184,28 +189,28 @@ s_vaults[s.payer][s.token] = FHE.sub(vault, pay);
 
 s.token.confidentialTransfer(s.payee, FHE.shareEuint64(pay, address(s.token)));
 ```
-An over-withdrawal becomes a **zero transfer, never a revert**. A revert would tell observers "the request exceeded the balance".
+An over-withdrawal becomes a **zero transfer, never a revert**. A revert would tell watchers "the request was more than the balance".
 
-Plaintext checks that are fine to revert on: `msg.sender == s.payee`, `s.status == Active`.
+Plaintext checks that may revert: `msg.sender == s.payee`, `s.status == Active`.
 
 ### Cancel
-Set `Cancelled` and stop accrual by storing `endTime`, then use `min(now, endTime)` in `_accrued`. The payee can still withdraw what accrued before cancellation. Add `endTime` to the struct.
+Set `Cancelled` and store `endTime`. In `_accrued`, use `min(now, endTime)`. This freezes accrual. The payee can still withdraw what accrued before cancel. Add `endTime` to the struct.
 
 ## Tests: `test/unit/DayzePayrollTest.t.sol` + `test/fuzz/DayzePayrollFuzzTest.t.sol`
-Deploy with `PERIOD = 30 days`, and in a second contract with `PERIOD = 600`, to check the math holds for both.
+Deploy once with `PERIOD = 30 days` and once with `PERIOD = 600`. The math must hold for both.
 
-1. `createOrg`; creating twice reverts
-2. `addToken`/`removeToken` are owner-only; `fundVault` and `createStream` with a non-allowlisted token revert
-3. `fundVault(cusdc, 10,000)` → `expectPlaintext(vaultOf(employer, cusdc), 10000e6)`; funding more than your cUSDC balance credits 0
+1. `createOrg`. Creating twice reverts.
+2. `addToken`/`removeToken` are owner-only. `fundVault` and `createStream` with a non-allowlisted token revert.
+3. `fundVault(cusdc, 10,000)` → `expectPlaintext(vaultOf(employer, cusdc), 10000e6)`. Funding more than your cUSDC balance credits 0.
 4. `createStream` 3,000 cUSDC/month → stored `monthly == 3000e6`
-5. `vm.warp(+1 day)`, withdraw exactly the accrued amount → payee cUSDC balance up, `withdrawn` matches
+5. `vm.warp(+1 day)`, withdraw exactly the accrued amount → payee cUSDC goes up, `withdrawn` matches
 6. **Low-unit asset:** stream 1 cETH/month (`1e6`), warp half a period → accrued is `5e5`, not 0
-7. **Vaults are per token:** fund only cUSDC, stream in cETH → withdraw pays 0, and the cUSDC vault is untouched
+7. **Vaults are per token:** fund only cUSDC, stream in cETH → withdraw pays 0. The cUSDC vault is untouched.
 8. **Over-withdraw** → `pay == 0`, balances unchanged, **no revert**
 9. **Underfunded vault**: fund 100, accrue 200, request 150 → pays 0
 10. Non-payee withdraw reverts
-11. Cancel, then warp: accrual frozen at cancel time
-12. ACL: payee can read `monthly`; bob (a random address) can't (`FHE.isAllowed` / mock ACL)
+11. Cancel, then warp: accrual stays frozen at cancel time
+12. ACL: payee can read `monthly`. bob (a random address) can't (`FHE.isAllowed` / mock ACL).
 13. Fuzz: `testFuzz_neverOverpays(uint64 monthly, uint32 dt, uint64 req)` → total withdrawn ≤ accrued and ≤ funded
 
 ## ✅ Checkpoint
@@ -214,13 +219,13 @@ forge test --match-contract DayzePayrollTest -vv
 ```
 - [ ] All tests pass, including the fuzz test
 - [ ] `grep -n "emit" src/DayzePayroll.sol` shows no plaintext amount in any event
-- [ ] Every assignment to an `e*` storage field is followed by `allowThis`
+- [ ] Every write to an `e*` storage field is followed by `allowThis`
 
 ## Pitfalls
-- **Multiplication overflow:** `monthly × elapsed` would wrap at 2^64 within months for large salaries, which is why accrual runs in `euint128`. Don't feed plaintext `block.timestamp` in where elapsed belongs.
-- **Units:** `monthly`, vaults and withdrawals are all in the wrapper's 6-decimal units, never the underlying token's (02).
-- Don't compute `available` with `select` against 0 to "protect" underflow. The invariant `withdrawn ≤ accrued` holds by construction, so keep it simple and test it with the fuzz test.
-- Gas: each FHE op is a Task Manager call. `withdraw` is ~12 ops (the `euint128` accrual adds a few), which is fine on Arbitrum.
+- **Overflow:** for large salaries, `monthly × elapsed` passes 2^64 within months. That's why accrual uses `euint128`. Use elapsed time, not raw `block.timestamp`.
+- **Units:** `monthly`, vaults and withdrawals all use the wrapper's 6-decimal units, never the underlying token's (02).
+- Don't wrap `available` in a `select` against 0 to "guard" underflow. `withdrawn ≤ accrued` always holds by design. Keep it simple and prove it with the fuzz test.
+- Gas: each FHE op is a Task Manager call. `withdraw` is ~12 ops (`euint128` accrual adds a few). Fine on Arbitrum.
 
 ## Commit
 `feat: add DayzePayroll core — token allowlist, per-token vaults, streams, accrual, withdraw`

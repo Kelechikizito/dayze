@@ -2,11 +2,14 @@
 
 ## Goal
 
-A Foundry project that compiles against CoFHE and runs an encrypted test on mocks, with **every Solidity dependency installed through `forge install`**.
+A Foundry project that compiles against CoFHE and runs an encrypted test on mocks. **Every Solidity dependency comes from `forge install`.**
 
-## Why this needs tweaking
+## Why this needs tweaks
 
-Fhenix publishes its contracts as Hardhat-style npm packages. Their READMEs say `npm install`, and their internal remappings point at `node_modules/`. We don't need npm, though: every package lives in a public git repo at a matching tag, so `forge install` works as long as the remappings point at the right **subfolder** of each repo and we paper over one Hardhat-only import.
+Fhenix ships its contracts as Hardhat-style npm packages. Their docs say `npm install`, and their remappings point at `node_modules/`. We skip npm. Each package has a public git repo with a matching tag, so `forge install` works if:
+
+- each remapping points at the right **subfolder**, and
+- we fix one Hardhat-only import.
 
 | npm package (what docs say)                                   | forge install (what we use)                              | Solidity lives in                                                |
 | ------------------------------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------- |
@@ -16,25 +19,25 @@ Fhenix publishes its contracts as Hardhat-style npm packages. Their READMEs say 
 | `fhenix-confidential-contracts@0.4.0`                         | `FhenixProtocol/fhenix-confidential-contracts@v0.4.0`    | `contracts/`                                                     |
 | `@cofhe/mock-contracts@0.7.1` + `@cofhe/foundry-plugin@0.7.1` | `FhenixProtocol/cofhesdk@8bda9b3…` (one monorepo)        | `packages/mock-contracts/`, `packages/foundry-plugin/contracts/` |
 
-**The Hardhat quirk:** `MockCoFHE.sol` imports `hardhat/console.sol`. forge-std ships an identical `console.sol`, so one remapping, `hardhat/=lib/forge-std/src/`, fixes it. No Hardhat needed.
+**Hardhat quirk:** `MockCoFHE.sol` imports `hardhat/console.sol`. forge-std has the same `console.sol`, so one remapping fixes it: `hardhat/=lib/forge-std/src/`. No Hardhat needed.
 
-**Why a commit hash for cofhesdk:** its tags look like `@cofhe/foundry-plugin@0.7.1`. The extra `@` breaks `forge install repo@tag` parsing, so we pin the commit that tag points to: `8bda9b39d39d9cf2969305ed20227edeb010f0c6` (mock-contracts 0.7.1 is the same commit).
+**Why a commit hash for cofhesdk:** its tags look like `@cofhe/foundry-plugin@0.7.1`. The extra `@` breaks `forge install repo@tag`. So we pin the tag's commit: `8bda9b39d39d9cf2969305ed20227edeb010f0c6` (mock-contracts 0.7.1 uses the same commit).
 
-**Why pin OZ to v5.4.0:** it's the version every Fhenix package is built and tested against.
+**Why OZ v5.4.0:** every Fhenix package is built and tested on it.
 
-> Verified on 2026-09-28: these exact commands, remappings and the `HelloFHE` test below were run in a clean Foundry project. The test passes, and removing `allowThis` makes it fail with `ACLNotAllowed`, as expected.
+> Checked 2026-09-28 in a clean Foundry project: these commands, remappings and the `HelloFHE` test work. The test passes. Removing `allowThis` makes it fail with `ACLNotAllowed`, as expected.
 
 ## Prereqs
 
 - Foundry (`foundryup`)
-- Node 20+, only for the frontend and the encrypt helper used by the seed script (08), **not** for contracts
+- Node 20+, only for the frontend and the seed script's encrypt helper (08). **Not** for contracts.
 - A wallet with Arbitrum Sepolia ETH for later checkpoints
 
 ## Steps
 
-### 1. Clean up the half-removed OZ submodule and npm leftovers
+### 1. Clean up the old OZ submodule and npm files
 
-Git currently has `lib/openzeppelin-contracts` staged as deleted and `.gitmodules` edited. `forge install` refuses to run while `.gitmodules` has uncommitted changes (`cannot safely install dependency … has existing changes`), so finish the removal and commit it first:
+Git has `lib/openzeppelin-contracts` staged as deleted and `.gitmodules` edited. `forge install` won't run while `.gitmodules` has uncommitted changes (`cannot safely install dependency … has existing changes`). Finish the removal and commit first:
 
 ```bash
 git rm -r --cached lib/openzeppelin-contracts 2>/dev/null
@@ -45,7 +48,7 @@ cat .gitmodules                          # should list only lib/forge-std
 git add .gitmodules && git commit -m "Remove stale OpenZeppelin submodule before reinstalling pinned deps."
 ```
 
-We reinstall OZ in the next step, pinned to the right version.
+The next step reinstalls OZ at the right version.
 
 ### 2. Install dependencies
 
@@ -58,9 +61,9 @@ forge install \
   FhenixProtocol/cofhesdk@8bda9b39d39d9cf2969305ed20227edeb010f0c6
 ```
 
-`forge-std` is already installed. `ls lib` should now show 6 folders.
+`forge-std` is already there. `ls lib` should show 6 folders.
 
-### 3. `remappings.txt`: replace the whole file
+### 3. `remappings.txt`: replace the file
 
 ```text
 forge-std/=lib/forge-std/src/
@@ -73,7 +76,7 @@ hardhat/=lib/forge-std/src/
 fhenix-confidential-contracts/=lib/fhenix-confidential-contracts/contracts/
 ```
 
-We keep the import **prefixes** the Fhenix packages use internally (`@fhenixprotocol/cofhe-contracts/…`, `@cofhe/mock-contracts/contracts/…`) and only change where they resolve. That's why their Hardhat-style imports compile under Forge unchanged.
+We keep the import **prefixes** Fhenix uses (`@fhenixprotocol/cofhe-contracts/…`, `@cofhe/mock-contracts/contracts/…`). We only change where they point. So their Hardhat-style imports compile in Forge as-is.
 
 ### 4. `foundry.toml`: one change
 
@@ -81,11 +84,14 @@ We keep the import **prefixes** the Fhenix packages use internally (`@fhenixprot
 libs = ["lib"]          # was ["node_modules", "lib"]
 ```
 
-Everything else is already right. Keep `isolate = true`: without it, tests pass on mocks and then fail on Arbitrum Sepolia because ACL checks are skipped between calls. Keep `auto_detect_remappings = false` so Forge doesn't guess remappings from the monorepo's nested `foundry.toml` files.
+The rest is already right.
 
-### 5. Keys live in the Foundry keystore, not `.env`
+- Keep `isolate = true`. Without it, ACL checks are skipped between calls, so tests pass on mocks but fail on Arbitrum Sepolia.
+- Keep `auto_detect_remappings = false`. It stops Forge from guessing remappings from the monorepo's nested `foundry.toml` files.
 
-No private key ever goes in `.env`, a script, or a shell variable. Import each key you'll sign with on-chain once, into the encrypted keystore (`~/.foundry/keystores/`):
+### 5. Keys go in the Foundry keystore, not `.env`
+
+Never put a private key in `.env`, a script, or a shell variable. Import each signing key once into the encrypted keystore (`~/.foundry/keystores/`):
 
 ```bash
 cast wallet import dayze-deployer --interactive   # paste key + set a password; also the employer/payer for seeding
@@ -93,9 +99,9 @@ cast wallet list
 cast wallet address --account dayze-deployer      # note this address
 ```
 
-For later checkpoints you'll sign with `--account dayze-deployer` (plus `--sender <address>` for `forge script`), and Foundry prompts for the password. The other demo roles (second approver, worker, landlord, auditor) are **browser wallets** and never need to be in the keystore.
+Later, sign with `--account dayze-deployer` (plus `--sender <address>` for `forge script`). Foundry asks for the password. Other demo roles (second approver, worker, landlord, auditor) use **browser wallets**. They don't go in the keystore.
 
-`.env` then holds only non-secret config:
+`.env` holds only non-secret config:
 
 ```bash
 ARBITRUM_SEPOLIA_RPC_URL=https://sepolia-rollup.arbitrum.io/rpc
@@ -103,13 +109,13 @@ ARBISCAN_API_KEY=...                 # for --verify
 DEPLOYER=0x...                       # address of dayze-deployer, used as --sender
 ```
 
-`.env` is gitignored anyway (`git check-ignore .env`), but with no keys in it, a leak is harmless.
+`.env` is gitignored (`git check-ignore .env`). With no keys in it, a leak does no harm.
 
-The `0xA11CE`-style constants in the tests are throwaway **test-only** keys that `CofheClient` needs to sign mock inputs inside Forge. They never touch a live network. Don't reuse a real key there.
+The `0xA11CE`-style constants in tests are **test-only** keys. `CofheClient` uses them to sign mock inputs in Forge. They never touch a live network. Never put a real key there.
 
 ### 6. Smoke test: `HelloFHE`
 
-`src/HelloFHE.sol`, a throwaway contract that proves the pipeline works:
+`src/HelloFHE.sol` is a throwaway contract that proves the pipeline works:
 
 ```solidity
 // SPDX-License-Identifier: MIT
@@ -233,7 +239,7 @@ contract HelloFHETest is CofheTest {
 }
 ```
 
-The encrypted input is **bound to the consuming contract** (`address(hello)`). The browser SDK does the same with `.setConsumingContract(addr)`. If you pass the wrong address, verification fails.
+The encrypted input is **bound to the contract that uses it** (`address(hello)`). The browser SDK does the same with `.setConsumingContract(addr)`. A wrong address fails verification.
 
 ## ✅ Checkpoint
 
@@ -242,19 +248,19 @@ forge build
 forge test --match-contract HelloFHETest -vv
 ```
 
-- [ ] `forge build` is clean. The mock contracts emit a few warnings (unused parameter, mutability); ignore them.
+- [ ] `forge build` is clean. Ignore the few warnings from mock contracts (unused parameter, mutability).
 - [ ] `test_setAndDouble` passes
-- [ ] Delete the `FHE.allowThis(s_stored);` line in `set` and re-run: it must **fail** with `ACLNotAllowed(...)`. This proves `isolate` and the ACL are active.
+- [ ] Delete `FHE.allowThis(s_stored);` in `set` and re-run. It must **fail** with `ACLNotAllowed(...)`. This proves `isolate` and the ACL work.
 - [ ] Put the line back
-- [ ] `git status` shows the new submodules under `lib/` and `.gitmodules` updated. Commit them.
+- [ ] `git status` shows new submodules in `lib/` and an updated `.gitmodules`. Commit them.
 
 ## Pitfalls
 
-- **`Source "…" not found`**: a remapping points one level too high or low. Compare it with the "Solidity lives in" column above. The usual culprit is `cofhe-contracts` needing `/contracts/`.
-- **`hardhat/console.sol` not found**: the `hardhat/` remapping is missing.
-- **Updating CoFHE later**: pick the new cofhesdk commit with `git ls-remote --tags https://github.com/FhenixProtocol/cofhesdk | grep foundry-plugin`, use the `^{}` (dereferenced) hash, and bump `cofhe-contracts` to whatever version that release's `package.json` depends on. Keep them in lockstep.
-- **Stack too deep** in your own contracts: add `via_ir = true` to `foundry.toml` (slower compiles).
-- **Every FHE op returns a new handle.** Forgetting `FHE.allowThis(newHandle)` is the #1 CoFHE bug. It works within one transaction and fails in the next.
+- **`Source "…" not found`**: a remapping is one level off. Check the "Solidity lives in" column above. Usually `cofhe-contracts` is missing `/contracts/`.
+- **`hardhat/console.sol` not found**: add the `hardhat/` remapping.
+- **Updating CoFHE later**: find the new cofhesdk commit with `git ls-remote --tags https://github.com/FhenixProtocol/cofhesdk | grep foundry-plugin`. Use the `^{}` (dereferenced) hash. Bump `cofhe-contracts` to the version in that release's `package.json`. Always update both together.
+- **Stack too deep**: add `via_ir = true` to `foundry.toml` (slower builds).
+- **Every FHE op returns a new handle.** Forgetting `FHE.allowThis(newHandle)` is the #1 CoFHE bug. It works in one transaction and fails in the next.
 - `CofheTest` already inherits forge-std `Test`. Don't inherit `Test` again.
 
 ## Commits (one logical change each)

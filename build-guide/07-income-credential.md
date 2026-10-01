@@ -1,7 +1,7 @@
 # 07 — IncomeCredential
 
 ## Goal
-A worker issues "earns ≥ X of token T per month" to one verifier, with an expiry. The verifier learns one bit (architecture §6.2, §7.4). This is the feature that differentiates Dayze from the other projects, so make it solid.
+A worker issues "earns ≥ X of token T per month" to one verifier, with an expiry. The verifier learns one bit (architecture §6.2, §7.4). This feature sets Dayze apart. Make it solid.
 
 ## Data model
 ```solidity
@@ -19,9 +19,9 @@ struct Credential {
     ebool ok;
 }
 ```
-Also expose, for the verifier page: org name (from payroll), `streamActiveSince`, and optionally "months funded". Architecture §8 lists this as the fake-employer mitigation. Months funded needs vault ÷ monthly, which is encrypted, so **skip it in v0.1** or compute another encrypted bit (`vaultOf(payer, token) >= monthly * 3`) and allow it to the verifier too.
+For the verifier page, also expose: org name (from payroll), `streamActiveSince`, and maybe "months funded". Architecture §8 uses these to fight fake employers. Months funded needs vault ÷ monthly, which is encrypted. So either **skip it in v0.1**, or compute another encrypted bit (`vaultOf(payer, token) >= monthly * 3`) and allow it to the verifier too.
 
-A credential is about **one stream, in one token**. "Earns ≥ 3,000 cUSDC" and "earns ≥ 1 cETH" are separate credentials. A combined "≥ $X across all streams" would need prices, which is out of scope for v0.1.
+A credential covers **one stream in one token**. "Earns ≥ 3,000 cUSDC" and "earns ≥ 1 cETH" are separate credentials. "≥ $X across all streams" needs prices. Out of scope for v0.1.
 
 ## Interface
 ```solidity
@@ -65,10 +65,10 @@ function credentialsOf(address payee) external view returns (uint256[] memory);
 /// @return The credential ids
 function credentialsFor(address verifier) external view returns (uint256[] memory);
 ```
-Events: `CredentialIssued(id, payee, verifier, token, threshold, expiresAt)`, `CredentialRevoked(id)`. The threshold is fine to emit; the result bit is not.
+Events: `CredentialIssued(id, payee, verifier, token, threshold, expiresAt)`, `CredentialRevoked(id)`. Emitting the threshold is fine. Never emit the result bit.
 
 ## Key CoFHE snippet
-`IncomeCredential` must be **allowed on the stream's `monthly` handle** to compute on it. In `DayzePayroll`, when a stream is created, also `FHE.allow(monthly, address(credential))` (payroll takes the credential address as a constructor arg or one-shot setter).
+`IncomeCredential` needs **access to the stream's `monthly` handle** to compute on it. In `DayzePayroll`, on stream creation, also call `FHE.allow(monthly, address(credential))`. Payroll gets the credential address from a constructor arg or a one-shot setter.
 
 ```solidity
 /// @notice Issues an "earns >= threshold per month" credential to one verifier
@@ -91,23 +91,23 @@ function issue(uint256 streamId, address verifier, uint64 threshold, uint64 expi
     // ...store (with token = address(s.token)), emit
 }
 ```
-Why not `allowSender`? The payee already knows their salary, and granting them the bit changes nothing. But keeping `ok` verifier-only makes the access list easy to explain on stage.
+Why not `allowSender`? The payee already knows their salary, so the bit tells them nothing. But a verifier-only `ok` makes the access list easy to explain on stage.
 
-Because 05 stores `monthly` directly, a worker earning exactly 3,000 cUSDC checked against 3,000 passes. There's no per-second rounding to work around. `IncomeCredential` doesn't need `PERIOD` any more.
+05 stores `monthly` directly. So a worker earning exactly 3,000 cUSDC passes a 3,000 check. No per-second rounding. `IncomeCredential` doesn't need `PERIOD`.
 
-## Honest-limits reminders (put these in NatSpec)
+## Honest limits (put these in NatSpec)
 - Expiry ends **validity**. It can't make a verifier forget a bit they already decrypted (§8).
-- The credential is "as of issuance". A later salary cut doesn't update it; short expiries keep it honest.
+- The credential is "as of issuance". A later salary cut doesn't change it. Short expiries keep it honest.
 - It proves what a contract pays, not who the employer is.
 
 ## Tests: `test/unit/IncomeCredentialTest.t.sol`
-1. Monthly 3,000 cUSDC, threshold 2,500 → `ok == true`; threshold 4,000 → `false`; exactly 3,000 → `true`
-2. Monthly 1 cETH (`1e6`), threshold `5e5` (0.5 ETH) → `true`; the credential stores `token == cETH`
-3. `ok` allowed to the verifier and **not** to bob or the payer
-4. Non-payee issue reverts; issuing on a `Pending`/`Cancelled` stream reverts
-5. `isValid` true before expiry; `vm.warp(expiresAt)` → false
-6. Revoke → `isValid` false; non-payee revoke reverts
-7. A stream cancelled after issuance: `isValid` stays true (as-of-issuance). Decide if you want to also check stream status in `isValid`; either is defensible, just document it.
+1. Monthly 3,000 cUSDC, threshold 2,500 → `ok == true`. Threshold 4,000 → `false`. Exactly 3,000 → `true`.
+2. Monthly 1 cETH (`1e6`), threshold `5e5` (0.5 ETH) → `true`. The credential stores `token == cETH`.
+3. `ok` is allowed to the verifier, **not** to bob or the payer
+4. Non-payee issue reverts. Issuing on a `Pending`/`Cancelled` stream reverts.
+5. `isValid` true before expiry. `vm.warp(expiresAt)` → false.
+6. Revoke → `isValid` false. Non-payee revoke reverts.
+7. Stream cancelled after issuance: `isValid` stays true (as of issuance). You may also check stream status in `isValid`. Both choices are fine. Just document it.
 8. Demo timing: with `PERIOD = 600`, issue with a 2-minute expiry and warp past it
 
 ## ✅ Checkpoint
@@ -116,8 +116,8 @@ forge test -vv          # full suite green
 forge coverage --report summary
 ```
 - [ ] Full suite passes
-- [ ] Coverage ≥ 80% lines on `src/` (FHE-heavy code can undercount; eyeball the misses)
-- [ ] Run `/solidity-auditor` on `src/` and fix anything real before deploying
+- [ ] Coverage ≥ 80% lines on `src/` (FHE-heavy code may undercount. Check the misses by eye.)
+- [ ] Run `/solidity-auditor` on `src/`. Fix real issues before deploy.
 
 ## Commit
 `feat: add IncomeCredential — per-verifier, expiring, one-bit income proofs`

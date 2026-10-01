@@ -1,9 +1,9 @@
 # 04 — ApprovalPolicy
 
 ## Goal
-Per Payer: a k-of-n approver set, plus an **encrypted** monthly threshold **per token**. Computes `needsApproval = FHE.gt(monthly, threshold[token])` and records approvals (architecture §6.2, §7.1, §7.2).
+Per Payer: a k-of-n approver set and an **encrypted** monthly threshold **per token**. It computes `needsApproval = FHE.gt(monthly, threshold[token])` and records approvals (architecture §6.2, §7.1, §7.2).
 
-Thresholds are per token because streams can pay in any allowlisted wrapper (02), and "10,000" means very different things in cUSDC and cETH. Comparing across tokens would need a price oracle, which is out of scope for v0.1.
+Why per token? Streams can pay in any allowlisted wrapper (02). "10,000" in cUSDC is not "10,000" in cETH. Comparing across tokens needs a price oracle. That's out of scope for v0.1.
 
 ## Interface
 ```solidity
@@ -103,7 +103,7 @@ s_thresholds[msg.sender][token] = t; // mapping(address payer => mapping(address
 s_hasThreshold[msg.sender][token] = true;
 ```
 
-**Evaluating a salary it doesn't own.** Payroll hands the monthly amount over with `FHE.shareEuint64(monthly, address(policy))`, and policy receives it:
+**Checking a salary it doesn't own.** Payroll shares the monthly amount with `FHE.shareEuint64(monthly, address(policy))`. Policy receives it:
 ```solidity
 /// @notice Checks whether a monthly amount needs approval under the payer's policy
 /// @dev Must be called directly by payroll: `receiveEuint64Param` only works when the sharer is the caller
@@ -124,22 +124,22 @@ function evaluate(address payer, address token, sharedEuint64 sharedMonthly) ext
     FHE.allow(r, msg.sender); // payroll needs it
 }
 ```
-**Fail closed on missing thresholds.** If a payer with a policy streams in a token they never set a threshold for, require approval. Otherwise a payer could dodge their own policy just by paying in a different token.
+**Fail closed on missing thresholds.** If a payer has a policy but no threshold for the stream's token, require approval. Otherwise a payer could skip their own policy by paying in another token.
 
-`receiveEuint64Param` only works when the sharer is the **direct caller**, which is why this must be `onlyPayroll` and called straight from `DayzePayroll`. Set the payroll address once with a one-shot `setPayroll` (owner-only, then locked) or pass it into the constructor with CREATE address prediction.
+`receiveEuint64Param` only works when the sharer is the **direct caller**. So `evaluate` must be `onlyPayroll`, called straight from `DayzePayroll`. Set the payroll address once: either a one-shot `setPayroll` (owner-only, then locked), or pass it to the constructor using CREATE address prediction.
 
-**Approvals** are plaintext: who approved is public, the amount isn't. Use `mapping(address payer => mapping(uint256 streamId => mapping(address => bool))) approved` plus a counter. Only the payer's approvers can approve, once each.
+**Approvals** are plaintext. Who approved is public. The amount isn't. Use `mapping(address payer => mapping(uint256 streamId => mapping(address => bool))) approved` plus a counter. Only the payer's approvers can approve, once each.
 
 ## Tests: `test/unit/ApprovalPolicyTest.t.sol`
-The interface goes in `src/interfaces/IApprovalPolicy.sol`. Use a tiny `PayrollHarness` (in `test/mocks/PayrollHarness.sol`) that shares a value and calls `evaluate`, so you don't need the real payroll yet.
+Put the interface in `src/interfaces/IApprovalPolicy.sol`. Use a small `PayrollHarness` (`test/mocks/PayrollHarness.sol`) that shares a value and calls `evaluate`. Then you don't need the real payroll yet.
 
-1. `setThreshold(cusdc, …)` stores the threshold; the payer can view it (`expectPlaintext`)
-2. `evaluate` with monthly 12,000 vs threshold 10,000 → `true`; 8,000 → `false`; exactly 10,000 → `false` (it's `gt`)
+1. `setThreshold(cusdc, …)` stores the threshold. The payer can view it (`expectPlaintext`).
+2. `evaluate` with monthly 12,000 vs threshold 10,000 → `true`. 8,000 → `false`. Exactly 10,000 → `false` (it's `gt`).
 3. No policy → always `false`
 4. Policy set, threshold only for cUSDC → `evaluate` for cETH returns `true` (fail closed)
-5. Thresholds are independent: 1 cETH vs a cETH threshold of 2 → `false`, even though the cUSDC threshold is 10,000
+5. Thresholds are separate: 1 cETH vs a cETH threshold of 2 → `false`, even with a cUSDC threshold of 10,000
 6. `evaluate` from a non-payroll caller reverts
-7. Approve: non-approver reverts, double approve reverts, count increments
+7. Approve: non-approver reverts, double approve reverts, count goes up
 8. `required > approvers.length` or `required == 0` reverts in `setPolicy`
 
 ## ✅ Checkpoint
@@ -147,12 +147,12 @@ The interface goes in `src/interfaces/IApprovalPolicy.sol`. Use a tiny `PayrollH
 forge test --match-contract ApprovalPolicyTest -vv
 ```
 - [ ] All tests pass
-- [ ] The threshold never appears in any event or plaintext storage
+- [ ] The threshold never shows up in any event or plaintext storage
 
 ## Pitfalls
-- Don't emit the threshold, or anything derived from it, in events.
-- Re-setting a threshold creates a new handle. Re-`allowThis` it.
-- `ThresholdSet` reveals *which* tokens a payer has thresholds for, never the values. That's fine.
+- Never emit the threshold, or anything built from it, in events.
+- Setting a threshold again makes a new handle. Call `allowThis` again.
+- `ThresholdSet` shows *which* tokens have thresholds, never the values. That's fine.
 
 ## Commit
 `feat: add ApprovalPolicy with per-token encrypted thresholds and k-of-n approvals`
