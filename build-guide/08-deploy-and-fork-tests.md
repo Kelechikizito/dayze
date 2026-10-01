@@ -82,7 +82,7 @@ forge test --match-path "test/forks/*" --fork-url $ARBITRUM_SEPOLIA_RPC_URL -vv
 ## ✅ Checkpoint
 - [ ] All contracts (3 wrappers, 2 mock tokens, 4 core contracts + library) deployed and verified on Arbiscan
 - [ ] `s_supportedTokens` is true for all three wrappers
-- [ ] Seed script run: 1 org, 1 policy, 1 auditor, 3 streams (one `Pending`)
+- [ ] Seed script run: 1 org, 1 policy, 1 auditor, 4 streams (one `Pending`)
 - [ ] On Arbiscan, a `withdraw` tx shows **no readable amount**. Screenshot it for the pitch.
 - [ ] Fork tests pass
 - [ ] `frontend/lib/contracts/` has addresses + typed ABIs
