@@ -5,7 +5,7 @@ import {FHE, euint64, externalEuint64} from "@fhenixprotocol/cofhe-contracts/FHE
 
 /**
  * @title HelloFHE
- * @author Kaykay
+ * @author Kelechi Kizito Ugwu
  * @notice Throwaway smoke test that stores an encrypted number and can double it.
  * @dev Proves the CoFHE pipeline and ACL work under Forge mocks. Every FHE operation
  *      returns a new handle, so every new handle needs fresh `allowThis` and `allowSender` calls.
