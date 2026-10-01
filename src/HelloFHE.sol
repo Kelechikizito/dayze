@@ -1,14 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.25;
 
-// ============================================
-// Imports
-// ============================================
 import {FHE, euint64, externalEuint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
-
-// ============================================
-// Interfaces, Libraries, Contract
-// ============================================
 
 /**
  * @title HelloFHE
@@ -18,18 +11,16 @@ import {FHE, euint64, externalEuint64} from "@fhenixprotocol/cofhe-contracts/FHE
  *      returns a new handle, so every new handle needs fresh `allowThis` and `allowSender` calls.
  */
 contract HelloFHE {
-    // ============================================
-    // State Variables
-    // ============================================
+    /*//////////////////////////////////////////////////////////////
+                            STATE VARIABLES
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Handle to the encrypted stored value
     euint64 private s_stored;
 
-    // ============================================
-    // Functions
-    // ============================================
-
-    // ---- external ----
+    /*//////////////////////////////////////////////////////////////
+                           EXTERNAL FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Stores an encrypted value supplied by the caller
     /// @param value Encrypted input handle, bound to this contract
@@ -47,7 +38,9 @@ contract HelloFHE {
         FHE.allowSender(s_stored);
     }
 
-    // ---- view & pure ----
+    /*//////////////////////////////////////////////////////////////
+                         VIEW & PURE FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Returns the handle to the encrypted stored value
     /// @return The `euint64` handle; only allowed addresses can unseal it
