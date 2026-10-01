@@ -106,9 +106,7 @@ s_hasThreshold[msg.sender][token] = true;
 **Evaluating a salary it doesn't own.** Payroll hands the monthly amount over with `FHE.shareEuint64(monthly, address(policy))`, and policy receives it:
 ```solidity
 /// @notice Checks whether a monthly amount needs approval under the payer's policy
-/// @dev Must be called directly by payroll: **Fail closed on missing thresholds.** If a payer with a policy streams in a token they never set a threshold for, require approval. Otherwise a payer could dodge their own policy just by paying in a different token.
-
-`receiveEuint64Param` only works when the sharer is the caller
+/// @dev Must be called directly by payroll: `receiveEuint64Param` only works when the sharer is the caller
 /// @param payer The payer whose policy applies
 /// @param token The confidential wrapper the stream pays in
 /// @param sharedMonthly The monthly amount, shared by payroll
