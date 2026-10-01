@@ -1,7 +1,7 @@
 # 07 — IncomeCredential
 
 ## Goal
-A worker issues "earns ≥ $X/month" to one verifier, with an expiry. The verifier learns one bit (architecture §6.2, §7.4). This is the feature that differentiates Dayze from the other projects, so make it solid.
+A worker issues "earns ≥ X of token T per month" to one verifier, with an expiry. The verifier learns one bit (architecture §6.2, §7.4). This is the feature that differentiates Dayze from the other projects, so make it solid.
 
 ## Data model
 ```solidity
@@ -10,7 +10,8 @@ struct Credential {
     address payee;
     address payer;
     address verifier;
-    uint64 threshold; // plaintext: the verifier asked for it, so it's not secret
+    address token; // the stream's confidential wrapper; the threshold is in its units
+    uint64 threshold; // plaintext, 6-decimal units: the verifier asked for it, so it's not secret
     uint64 issuedAt;
     uint64 expiresAt;
     uint64 streamActiveSince;
@@ -18,7 +19,9 @@ struct Credential {
     ebool ok;
 }
 ```
-Also expose, for the verifier page: org name (from payroll), `streamActiveSince`, and optionally "months funded". Architecture §8 lists this as the fake-employer mitigation. Months funded needs vault ÷ monthly, which is encrypted, so **skip it in v0.1** or compute another encrypted bit (`vault >= monthly * 3`) and allow it to the verifier too.
+Also expose, for the verifier page: org name (from payroll), `streamActiveSince`, and optionally "months funded". Architecture §8 lists this as the fake-employer mitigation. Months funded needs vault ÷ monthly, which is encrypted, so **skip it in v0.1** or compute another encrypted bit (`vaultOf(payer, token) >= monthly * 3`) and allow it to the verifier too.
+
+A credential is about **one stream, in one token**. "Earns ≥ 3,000 cUSDC" and "earns ≥ 1 cETH" are separate credentials. A combined "≥ $X across all streams" would need prices, which is out of scope for v0.1.
 
 ## Interface
 ```solidity
@@ -29,7 +32,7 @@ Also expose, for the verifier page: org name (from payroll), `streamActiveSince`
 /// @notice Issues an "earns >= threshold per month" credential to one verifier
 /// @param streamId The caller's active stream
 /// @param verifier The only address allowed to read the result bit
-/// @param threshold Plaintext monthly amount the verifier asked about
+/// @param threshold Plaintext monthly amount the verifier asked about, in the stream token's 6-decimal units
 /// @param expiresAt Timestamp after which the credential is no longer valid
 /// @return id The new credential's id
 function issue(uint256 streamId, address verifier, uint64 threshold, uint64 expiresAt) external returns (uint256 id);
@@ -62,10 +65,10 @@ function credentialsOf(address payee) external view returns (uint256[] memory);
 /// @return The credential ids
 function credentialsFor(address verifier) external view returns (uint256[] memory);
 ```
-Events: `CredentialIssued(id, payee, verifier, threshold, expiresAt)`, `CredentialRevoked(id)`. The threshold is fine to emit; the result bit is not.
+Events: `CredentialIssued(id, payee, verifier, token, threshold, expiresAt)`, `CredentialRevoked(id)`. The threshold is fine to emit; the result bit is not.
 
 ## Key CoFHE snippet
-`IncomeCredential` must be **allowed on the stream's rate handle** to compute on it. In `DayzePayroll`, when a stream is created, also `FHE.allow(rate, address(credential))` (payroll takes the credential address as a constructor arg or one-shot setter).
+`IncomeCredential` must be **allowed on the stream's `monthly` handle** to compute on it. In `DayzePayroll`, when a stream is created, also `FHE.allow(monthly, address(credential))` (payroll takes the credential address as a constructor arg or one-shot setter).
 
 ```solidity
 /// @notice Issues an "earns >= threshold per month" credential to one verifier
@@ -73,7 +76,7 @@ Events: `CredentialIssued(id, payee, verifier, threshold, expiresAt)`, `Credenti
 ///      The result is as of issuance. It proves what a contract pays, not who the employer is.
 /// @param streamId The caller's active stream
 /// @param verifier The only address allowed to read the result bit
-/// @param threshold Plaintext monthly amount the verifier asked about
+/// @param threshold Plaintext monthly amount the verifier asked about, in the stream token's 6-decimal units
 /// @param expiresAt Timestamp after which the credential is no longer valid
 /// @return id The new credential's id
 function issue(uint256 streamId, address verifier, uint64 threshold, uint64 expiresAt) external returns (uint256 id) {
@@ -82,16 +85,15 @@ function issue(uint256 streamId, address verifier, uint64 threshold, uint64 expi
     if (s.status != IDayzePayroll.Status.Active) revert IncomeCredential__StreamNotActive();
     if (expiresAt <= block.timestamp) revert IncomeCredential__BadExpiry();
 
-    euint64 monthly = FHE.mul(s.ratePerSecond, FHE.asEuint64(PERIOD)); // same PERIOD as payroll
-    ebool ok = FHE.gte(monthly, FHE.asEuint64(threshold));
+    ebool ok = FHE.gte(s.monthly, FHE.asEuint64(threshold)); // stored monthly, so no rounding (05)
     FHE.allowThis(ok);
     FHE.allow(ok, verifier); // ONLY the verifier, not the payee
-    // ...store, emit
+    // ...store (with token = address(s.token)), emit
 }
 ```
 Why not `allowSender`? The payee already knows their salary, and granting them the bit changes nothing. But keeping `ok` verifier-only makes the access list easy to explain on stage.
 
-Note: `rate × PERIOD` can be slightly below the entered monthly salary because of the division remainder in 05. A worker earning exactly $3,000 checked against $3,000 could fail. Either tell users to set thresholds slightly lower, or store the original `monthly` handle on the stream and compare against that (cleaner, and recommended).
+Because 05 stores `monthly` directly, a worker earning exactly 3,000 cUSDC checked against 3,000 passes. There's no per-second rounding to work around. `IncomeCredential` doesn't need `PERIOD` any more.
 
 ## Honest-limits reminders (put these in NatSpec)
 - Expiry ends **validity**. It can't make a verifier forget a bit they already decrypted (§8).
@@ -99,13 +101,14 @@ Note: `rate × PERIOD` can be slightly below the entered monthly salary because 
 - It proves what a contract pays, not who the employer is.
 
 ## Tests: `test/unit/IncomeCredentialTest.t.sol`
-1. Rate 3,000/mo, threshold 2,500 → `ok == true`; threshold 4,000 → `false`
-2. `ok` allowed to the verifier and **not** to bob or the payer
-3. Non-payee issue reverts; issuing on a `Pending`/`Cancelled` stream reverts
-4. `isValid` true before expiry; `vm.warp(expiresAt)` → false
-5. Revoke → `isValid` false; non-payee revoke reverts
-6. A stream cancelled after issuance: `isValid` stays true (as-of-issuance). Decide if you want to also check stream status in `isValid`; either is defensible, just document it.
-7. Demo timing: with `PERIOD = 600`, issue with a 2-minute expiry and warp past it
+1. Monthly 3,000 cUSDC, threshold 2,500 → `ok == true`; threshold 4,000 → `false`; exactly 3,000 → `true`
+2. Monthly 1 cETH (`1e6`), threshold `5e5` (0.5 ETH) → `true`; the credential stores `token == cETH`
+3. `ok` allowed to the verifier and **not** to bob or the payer
+4. Non-payee issue reverts; issuing on a `Pending`/`Cancelled` stream reverts
+5. `isValid` true before expiry; `vm.warp(expiresAt)` → false
+6. Revoke → `isValid` false; non-payee revoke reverts
+7. A stream cancelled after issuance: `isValid` stays true (as-of-issuance). Decide if you want to also check stream status in `isValid`; either is defensible, just document it.
+8. Demo timing: with `PERIOD = 600`, issue with a 2-minute expiry and warp past it
 
 ## ✅ Checkpoint
 ```bash

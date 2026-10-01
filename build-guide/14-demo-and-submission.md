@@ -8,7 +8,7 @@
 
 ## 2. Demo script (~3 minutes)
 1. **Problem (20s):** show a normal USDC payroll tx on Arbiscan. "Everyone can see this salary, forever."
-2. **Employer (40s):** create the $12k stream → "Checking policy privately…" → Pending → second wallet approves → Active. "The threshold is encrypted. The contract compared two numbers it can't read."
+2. **Employer (40s):** create the 12k cUSDC stream → "Checking policy privately…" → Pending → second wallet approves → Active. "The threshold is encrypted. The contract compared two numbers it can't read."
 3. **Worker (40s):** balance ticking. "Zero transactions." Withdraw. Open the tx on Arbiscan: **nothing readable**.
 4. **Credential (50s):** landlord asks for ≥ $3k. Worker issues with a 2-minute expiry → sends link → landlord sees ✅. Wrong wallet can't unseal. Wait → banner flips to **Expired** live.
 5. **Auditor (20s):** unseal + CSV, generated in the browser.

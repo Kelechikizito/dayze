@@ -28,7 +28,7 @@ If you've read older Fhenix examples, these are different now:
 | # | File | What you build | Est. time |
 |---|---|---|---|
 | 01 | [01-setup.md](01-setup.md) | Dependencies, remappings, a `HelloFHE` contract passing on CoFHE mocks | 1–2h |
-| 02 | [02-confidential-usdc.md](02-confidential-usdc.md) | `MockUSDC` + `ConfidentialUSDC` (FHERC20 wrapper) | 1–2h |
+| 02 | [02-confidential-tokens.md](02-confidential-tokens.md) | `ConfidentialToken` (any ERC20) + `ConfidentialNative` (ETH) FHERC20 wrappers | 2h |
 | 03 | [03-audit-registry.md](03-audit-registry.md) | `AuditRegistry` + the "allow to auditors" pattern | 1h |
 | 04 | [04-approval-policy.md](04-approval-policy.md) | `ApprovalPolicy`: encrypted threshold, k-of-n approvers | 2h |
 | 05 | [05-payroll-core.md](05-payroll-core.md) | `DayzePayroll`: orgs, vault, streams, accrual, withdraw | 4–6h |
@@ -49,7 +49,7 @@ If you've read older Fhenix examples, these are different now:
 ## Progress
 
 - [x] 01 Setup
-- [ ] 02 ConfidentialUSDC
+- [ ] 02 Confidential tokens
 - [ ] 03 AuditRegistry
 - [ ] 04 ApprovalPolicy
 - [ ] 05 DayzePayroll core
@@ -68,8 +68,8 @@ If you've read older Fhenix examples, these are different now:
 ```
 src/
   HelloFHE.sol                   (delete after 02)
-  MockUSDC.sol
-  ConfidentialUSDC.sol
+  ConfidentialToken.sol          (one deployment per ERC20)
+  ConfidentialNative.sol         (native ETH)
   AuditRegistry.sol
   ApprovalPolicy.sol
   DayzePayroll.sol
@@ -77,11 +77,11 @@ src/
   interfaces/   IAuditRegistry.sol, IApprovalPolicy.sol, IDayzePayroll.sol
   libraries/    AuditAccess.sol  (shared _allowAuditors helper)
 test/
-  unit/         HelloFHETest, ConfidentialUSDCTest, AuditRegistryTest, ApprovalPolicyTest,
+  unit/         HelloFHETest, ConfidentialTokenTest, AuditRegistryTest, ApprovalPolicyTest,
                 DayzePayrollTest, PayrollApprovalsTest, DecryptReplayTest, IncomeCredentialTest  (*.t.sol)
   fuzz/         DayzePayrollFuzzTest.t.sol
   forks/        LiveForkTest.t.sol
-  mocks/        AuditHarness.sol, PayrollHarness.sol
+  mocks/        MockERC20.sol, MockWETH.sol, AuditHarness.sol, PayrollHarness.sol
   utils/        DayzeTestBase.sol
 script/
   Deploy.s.sol

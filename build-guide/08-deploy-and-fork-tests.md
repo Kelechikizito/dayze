@@ -1,23 +1,26 @@
 # 08 — Deploy to Arbitrum Sepolia + fork tests
 
 ## Goal
-All five contracts live on Arbitrum Sepolia against real CoFHE, seeded with demo data, with addresses and ABIs exported to the frontend.
+All contracts live on Arbitrum Sepolia against real CoFHE, seeded with demo data, with addresses and ABIs exported to the frontend.
 
 ## Steps
 
 ### 1. `script/Deploy.s.sol`
 Deploy order and wiring:
 ```text
-MockUSDC
-ConfidentialUSDC(usdc)                 ← forge auto-deploys + links ERC20ConfidentialLib
+MockERC20("USDC", 6), MockERC20("ARB", 18)   ← demo tokens you can mint
+ConfidentialToken(usdc, ...)                ← forge auto-deploys + links ERC20ConfidentialLib
+ConfidentialToken(arb, ...)
+ConfidentialNative(WETH)                    ← Arbitrum Sepolia's canonical WETH, from env
 AuditRegistry
 ApprovalPolicy
-DayzePayroll(cusdc, policy, registry, PERIOD)
-IncomeCredential(payroll, PERIOD)
-policy.setPayroll(payroll)             ← one-shot setters from 04/07
+DayzePayroll(policy, registry, PERIOD)
+IncomeCredential(payroll)
+policy.setPayroll(payroll)                  ← one-shot setters from 04/07
 payroll.setCredential(credential)
+payroll.addToken(cusdc), addToken(carb), addToken(ceth)
 ```
-Read `PERIOD` from env (`DEMO_PERIOD=600`), defaulting to 30 days. Write the addresses to `deployments/421614.json` with `vm.writeJson`.
+Read `PERIOD` from env (`DEMO_PERIOD=600`), defaulting to 30 days, and `WETH` from env (look the address up on Arbiscan). To support another real ERC20 later, deploy one more `ConfidentialToken` for it and call `addToken`; no payroll redeploy needed. Write the addresses to `deployments/421614.json` with `vm.writeJson`.
 
 **No private key in the script.** Use the no-argument `vm.startBroadcast()`. Forge then signs with whatever `--account` you pass on the command line:
 
@@ -54,14 +57,14 @@ Inside it: `createCofheClient(createCofheConfig({ supportedChains: [arbSepolia] 
 **b) `script/seed.sh`** calls the helper and sends each tx with `cast`:
 ```bash
 read -r H P < <(cd frontend && npx tsx scripts/encrypt.ts --value 10000000000 --account $DEPLOYER --contract $POLICY)
-cast send $POLICY "setPolicy(bytes32,bytes,address[],uint8)" $H $P "[$DEPLOYER,$APPROVER2]" 2 \
+cast send $POLICY "setThreshold(address,bytes32,bytes)" $CUSDC $H $P \
   --account dayze-deployer --rpc-url arbitrum_sepolia
 ```
-It creates the org, sets the policy (threshold $10k), adds an auditor, shields and funds, and creates 3 streams ($3k, $6k, $12k, where the last one triggers approval). Each `cast send` prompts for the password. That's about 10 prompts for the whole seed, which is fine for a one-off. If it gets tedious, `--password-file` pointing at a file **outside the repo** is an option; that's your call.
+It creates the org, sets the policy (approvers + a 10,000 cUSDC threshold and a 2 cETH threshold), adds an auditor, shields and funds cUSDC and ETH, and creates 4 streams (3k, 6k and 12k cUSDC, where the 12k one triggers approval, plus 0.5 cETH). Each `cast send` prompts for the password. That's about 10 prompts for the whole seed, which is fine for a one-off. If it gets tedious, `--password-file` pointing at a file **outside the repo** is an option; that's your call.
 
 **Or skip the script** and seed through the UI once checkpoint 10 works. The browser wallet signs, so no keystore is involved.
 
-**Policy resolution (`resolvePolicy`)** needs no special key: the employer UI already runs `decryptForTx` and submits it (checkpoint 10), and the function is permissionless. You don't need a background keeper holding a key. For the seeded $12k stream, open the employer console once and it resolves.
+**Policy resolution (`resolvePolicy`)** needs no special key: the employer UI already runs `decryptForTx` and submits it (checkpoint 10), and the function is permissionless. You don't need a background keeper holding a key. For the seeded 12k cUSDC stream, open the employer console once and it resolves.
 
 ### 3. Fork tests: `test/forks/LiveForkTest.t.sol`
 Goal: prove your contracts work against the **real** Task Manager, not just mocks.
@@ -77,7 +80,8 @@ forge test --match-path "test/forks/*" --fork-url $ARBITRUM_SEPOLIA_RPC_URL -vv
 `scripts/export-abis.sh`: copy `out/<Contract>.sol/<Contract>.json` `.abi` into `frontend/lib/contracts/abis/*.ts` (as `export const X = [...] as const` so viem infers types), and `deployments/421614.json` into `frontend/lib/contracts/addresses.ts`.
 
 ## ✅ Checkpoint
-- [ ] All 6 contracts (+ library) deployed and verified on Arbiscan
+- [ ] All contracts (3 wrappers, 2 mock tokens, 4 core contracts + library) deployed and verified on Arbiscan
+- [ ] `s_supportedTokens` is true for all three wrappers
 - [ ] Seed script run: 1 org, 1 policy, 1 auditor, 3 streams (one `Pending`)
 - [ ] On Arbiscan, a `withdraw` tx shows **no readable amount**. Screenshot it for the pitch.
 - [ ] Fork tests pass

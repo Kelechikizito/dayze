@@ -7,7 +7,7 @@ Goal: faster dashboards than `getLogs`, and a public index that is safe because 
 
 1. `npm i -g @graphprotocol/graph-cli` → `graph init --from-contract <PAYROLL> --network arbitrum-sepolia subgraph`
 2. Add data sources for `DayzePayroll`, `ApprovalPolicy` and `IncomeCredential`
-3. Entities: `Org`, `Stream` (id, payer, payee, status, rateHandle, startTime), `Withdrawal` (handle only), `Approval`, `Credential` (threshold, expiresAt, revoked)
+3. Entities: `Org`, `Stream` (id, payer, payee, token, status, monthlyHandle, startTime), `Withdrawal` (handle only), `Approval`, `Credential` (token, threshold, expiresAt, revoked)
 4. Deploy to Subgraph Studio; swap the frontend reads to GraphQL behind a flag, keeping `getLogs` as a fallback
 
 **Check:** grep your schema. There should be no field named like an amount except `threshold` (plaintext by design) and `*Handle` fields.

@@ -71,7 +71,8 @@ cd frontend && npm run dev
 ```
 - [ ] Connect a wallet on Arbitrum Sepolia; wrong-network prompt works
 - [ ] A debug button encrypts `42` for `HelloFHE`-style input without errors (console shows handle + proof)
-- [ ] Unseal your own cUSDC balance via `decryptForView` after creating an ACP
+- [ ] Unseal your own confidential balance (any wrapper) via `decryptForView` after creating an ACP
+- [ ] A `tokens.ts` list maps each wrapper to its underlying (or native ETH), symbol and `rate()`, and helpers convert between underlying and 6-decimal confidential units
 - [ ] `npm run build` passes (catches SSR/WASM issues early)
 
 ## Commit

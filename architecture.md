@@ -62,11 +62,11 @@ Dayze's position: the **stream is the income source the credential is built from
 | Term                  | Definition                                                                                                                                          |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Payer**             | The employer organisation. Funds a payroll vault and creates streams.                                                                               |
-| **Payee**             | A worker receiving a stream. Can see their own rate and balance via a CoFHE permit.                                                                 |
-| **Stream**            | A per-Payee record: encrypted `ratePerSecond`, `startTime`, `lastSettled`, encrypted `withdrawn`, and status.                                       |
-| **cUSDC**             | Confidential wrapped USDC. USDC goes in, an encrypted balance comes out. Wrapping and unwrapping are the only points where amounts touch plaintext. |
+| **Payee**             | A worker receiving a stream. Can see their own salary and balance via a CoFHE permit.                                                               |
+| **Stream**            | A per-Payee record: the token it pays in, encrypted `monthly`, `startTime`, encrypted `withdrawn`, and status.                                      |
+| **Confidential token** | A wrapped ERC20 (cUSDC, cARB, …) or wrapped native ETH (cETH). The token goes in, an encrypted balance comes out. Wrapping and unwrapping are the only points where amounts touch plaintext. Payroll accepts any allowlisted wrapper. |
 | **Audit Key**         | An auditor address the Payer grants decrypt rights on payroll ciphertexts (via `FHE.allow`).                                                        |
-| **Approval Policy**   | An encrypted threshold plus a required approver count. Streams above the threshold need k-of-n approver signatures before activating.               |
+| **Approval Policy**   | An encrypted threshold per token plus a required approver count. Streams above the threshold need k-of-n approver signatures before activating.               |
 | **Income Credential** | A per-verifier, time-bounded record whose payload is an encrypted boolean `monthlyIncome ≥ threshold`, decryptable only by that verifier.           |
 | **Verifier**          | A landlord or lender. Receives a credential link and sees ✅ / ❌ plus the credential's metadata.                                                   |
 | **Permit**            | A CoFHE EIP-712 permit that proves identity to the Threshold Network so a user can unseal ciphertexts they're allowed to see.                       |
@@ -90,7 +90,7 @@ flowchart TB
 
     subgraph Chain["Arbitrum Sepolia"]
         PAY["DayzePayroll.sol\n(streams, accrual, withdrawals)"]
-        CUSDC["ConfidentialUSDC.sol\n(wrap / unwrap, encrypted balances)"]
+        CUSDC["ConfidentialToken.sol / ConfidentialNative.sol\n(one wrapper per token, encrypted balances)"]
         POL["ApprovalPolicy.sol\n(encrypted thresholds, k-of-n approvals)"]
         AUD["AuditRegistry.sol\n(auditor grants)"]
         CRED["IncomeCredential.sol\n(issue / expire / revoke)"]
@@ -109,7 +109,7 @@ flowchart TB
     PAY <--> CUSDC
     PAY --> POL
     PAY --> AUD
-    CRED -->|reads encrypted rate| PAY
+    CRED -->|reads encrypted monthly| PAY
     PAY -->|FHE ops| TM
     POL -->|FHE ops| TM
     CRED -->|FHE ops| TM
@@ -139,22 +139,22 @@ When presenting, say: **"zero-knowledge income check, enforced by FHE."** A port
 
 - **Next.js** app with three role views: Employer console, Worker app, Verifier page.
 - `wagmi` / `viem` for wallet interactions. `@cofhe/sdk` (+ `@cofhe/react`) for in-browser encryption of inputs and permit-based unsealing.
-- **Worker's live balance:** the app unseals `ratePerSecond` once via permit and then ticks the balance locally (`rate × elapsed − withdrawn`). The number moves every second on screen with zero transactions. Onchain state only changes on withdraw.
+- **Worker's live balance:** the app unseals `monthly` once via permit and then ticks the balance locally (`monthly × elapsed / PERIOD − withdrawn`). The number moves every second on screen with zero transactions. Onchain state only changes on withdraw.
 - **Verifier page:** opens from a credential link, reads the credential's plaintext metadata from the contract, and unseals the result bit with the verifier's permit.
 
 ### 6.2 Smart contracts (Arbitrum Sepolia)
 
 | Contract               | Responsibility                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DayzePayroll.sol`     | Payer vault (encrypted balance), stream creation and updates, lazy accrual, and withdrawals. Accrual is `FHE.mul(rate, FHE.asEuint64(elapsed))`, where elapsed time is plaintext and only the rate is encrypted. Withdrawals use `FHE.select(FHE.lte(req, available), req, 0)` so an over-withdrawal becomes a zero transfer instead of a revert that would leak information. The vault debit uses the same pattern to handle underfunding. |
-| `ConfidentialUSDC.sol` | A minimal confidential wrapper. `wrap(amount)` takes USDC and credits an encrypted balance; `unwrap` uses the async decrypt flow to release USDC. If Fhenix's own confidential-token standard fits, use that instead of writing this.                                                                                                                                                                                                       |
-| `ApprovalPolicy.sol`   | Stores an encrypted threshold and an approver set per Payer. On stream creation or raise, computes `needsApproval = FHE.gt(monthly, threshold)`, publishes that single bit via threshold decryption, and holds the stream `Pending` until k approvers sign.                                                                                                                                                                                 |
+| `DayzePayroll.sol`     | Owner-managed allowlist of confidential wrappers, per-token Payer vaults (encrypted balances), stream creation and updates, lazy accrual, and withdrawals. Accrual is `monthly × elapsed / PERIOD` in `euint128`, where elapsed time is plaintext and only the salary is encrypted. Withdrawals use `FHE.select(FHE.lte(req, available), req, 0)` so an over-withdrawal becomes a zero transfer instead of a revert that would leak information. The vault debit uses the same pattern to handle underfunding. |
+| `ConfidentialToken.sol` / `ConfidentialNative.sol` | Thin hosts over Fhenix's `FHERC20ERC20Wrapper` (any ERC20, one deployment per token) and `FHERC20NativeWrapper` (native ETH). `shield` takes the token (via `SafeERC20`) and credits an encrypted balance; `unshield` uses the async decrypt flow to release it. Confidential precision is capped at 6 decimals. |
+| `ApprovalPolicy.sol`   | Stores an approver set per Payer and an encrypted threshold per (Payer, token). On stream creation or raise, computes `needsApproval = FHE.gt(monthly, threshold[token])` (a token with no threshold always needs approval), publishes that single bit via threshold decryption, and holds the stream `Pending` until k approvers sign.                                                                                                                                                                                 |
 | `AuditRegistry.sol`    | Payer designates auditor addresses. Every new or updated stream handle is `FHE.allow`-ed to current auditors.                                                                                                                                                                                                                                                                                                                               |
-| `IncomeCredential.sol` | The worker calls `issue(verifier, threshold, expiresAt)`. The contract computes `ok = FHE.gte(rate × 30 days, threshold)` from the live stream, requires the stream to be `Active`, `FHE.allow(ok, verifier)`, and stores `{payee, payer, verifier, threshold, issuedAt, expiresAt, revoked, okHandle}`. `revoke(id)` is worker-only. `isValid(id)` checks expiry and revocation.                                                           |
+| `IncomeCredential.sol` | The worker calls `issue(verifier, threshold, expiresAt)`. The contract computes `ok = FHE.gte(monthly, threshold)` from the live stream, in the stream's token, requires the stream to be `Active`, `FHE.allow(ok, verifier)`, and stores `{payee, payer, verifier, token, threshold, issuedAt, expiresAt, revoked, okHandle}`. `revoke(id)` is worker-only. `isValid(id)` checks expiry and revocation.                                                           |
 
 ### 6.3 Encryption & access layer (Fhenix CoFHE)
 
-- Encrypted types: `euint64` for amounts (USDC's 6 decimals fit comfortably) and `ebool` for policy and credential results.
+- Encrypted types: `euint64` for amounts (every wrapper caps precision at 6 decimals, so 18-decimal tokens fit too), `euint128` for intermediate accrual math, and `ebool` for policy and credential results.
 - FHE operations are **asynchronous**: the contract submits tasks to the CoFHE Task Manager, the coprocessor computes offchain, and results come back as handles. Anything needing plaintext (unwrap, the approval bit) goes through the threshold-decrypt flow: `allowPublic`, then `decryptForTx`, then `publishDecryptResult`. The UI must show "processing" states for these steps.
 - Access is per-handle: `FHE.allowThis` lets the contract keep using a value, `FHE.allow(handle, addr)` grants decrypt rights to a specific address, and users unseal via EIP-712 permits.
 
@@ -170,27 +170,27 @@ When presenting, say: **"zero-knowledge income check, enforced by FHE."** A port
 ### 7.1 Employer setup
 
 1. Payer connects a wallet and creates an organisation (name plus optional ENS name, which shows on credentials).
-2. Payer sets the Approval Policy: encrypted threshold (e.g. $10k/month) and approvers (k-of-n).
+2. Payer sets the Approval Policy: approvers (k-of-n) and an encrypted threshold per token (e.g. 10,000 cUSDC/month).
 3. Payer designates an Audit Key address.
-4. Payer wraps USDC into cUSDC and funds the payroll vault.
+4. Payer wraps any supported token (USDC, ARB, ETH, …) into its confidential wrapper and funds that token's payroll vault.
 
 ### 7.2 Create a stream
 
-1. Payer enters the Payee's address and monthly salary. The browser encrypts it with `@cofhe/sdk`.
-2. `DayzePayroll` converts the monthly amount to an encrypted `ratePerSecond`, then asks `ApprovalPolicy` to evaluate `needsApproval`.
+1. Payer enters the Payee's address, the token, and the monthly salary. The browser encrypts it with `@cofhe/sdk`.
+2. `DayzePayroll` stores the encrypted monthly amount, then asks `ApprovalPolicy` to evaluate `needsApproval` against that token's threshold.
 3. If the decrypted bit is `false`, the stream is `Active` immediately. If `true`, it stays `Pending` until k approvers sign, then activates.
-4. Rate handles are allowed to the Payee (to view), the auditors, and the contract.
+4. Monthly handles are allowed to the Payee (to view), the auditors, and the contract.
 
 ### 7.3 Accrual & withdrawal
 
-1. Nothing happens onchain while time passes. The worker app shows the balance ticking locally from the unsealed rate.
-2. Worker withdraws: an encrypted request becomes `select(req ≤ available, req, 0)`. The vault is debited and the worker's cUSDC credited, all on ciphertext.
-3. Worker optionally unwraps cUSDC to USDC. This is the one moment an amount becomes public, and the UI warns about it.
+1. Nothing happens onchain while time passes. The worker app shows the balance ticking locally from the unsealed monthly salary.
+2. Worker withdraws: an encrypted request becomes `select(req ≤ available, req, 0)`. The payer's vault for that token is debited and the worker's confidential balance credited, all on ciphertext.
+3. Worker optionally unwraps to the underlying token (or native ETH). This is the one moment an amount becomes public, and the UI warns about it.
 
 ### 7.4 Income credential
 
-1. A landlord asks for proof of ≥ $3,000/month. The worker enters the landlord's address, the threshold, and an expiry (e.g. 7 days).
-2. `IncomeCredential.issue()` computes `ok = FHE.gte(monthly, 3000)` from the _live_ stream and allows `ok` to the landlord only.
+1. A landlord asks for proof of ≥ 3,000 USDC/month. The worker enters the landlord's address, the threshold, and an expiry (e.g. 7 days).
+2. `IncomeCredential.issue()` computes `ok = FHE.gte(monthly, 3000)` from the _live_ stream, in that stream's token, and allows `ok` to the landlord only.
 3. The worker sends the credential link. The landlord's Verifier page shows: ✅ / ❌, issuer organisation, stream active since, issued at, expires at.
 4. After `expiresAt`, or after worker revocation, `isValid()` returns false and the page shows **Expired** or **Revoked**.
 
@@ -211,7 +211,7 @@ When presenting, say: **"zero-knowledge income check, enforced by FHE."** A port
 | Fake employer (worker creates a stream to themselves to fake income) | Credential shows the issuing organisation, how long the stream has been active, and how many months are funded | Dayze proves _what a contract pays_, not _who the employer is_. Business verification is out of scope, and the verifier judges the issuer             |
 | Expiry isn't "forgetting"                                            | After expiry, `isValid()` fails and the page shows Expired                                                     | A verifier who already decrypted the bit knows it. Expiry ends the credential's _validity_, it can't erase knowledge. This is true of any proof       |
 | Audit access is sticky                                               | New handles are only allowed to current auditors                                                               | `FHE.allow` grants on existing handles can't be withdrawn, so a removed auditor keeps access to data they were already granted                        |
-| Salary changes after issuance                                        | Credential stores `issuedAt` and is computed from the live rate at that moment                                 | A credential is "as of issuance". Short expiries keep it honest                                                                                       |
+| Salary changes after issuance                                        | Credential stores `issuedAt` and is computed from the live salary at that moment                                 | A credential is "as of issuance". Short expiries keep it honest                                                                                       |
 | Decrypt-flow freshness                                               | Replay protection on decrypt results used in state changes                                                     | The async decrypt pattern needs careful handling. It was flagged as an open gap in comparable FHE payroll projects, so it gets a dedicated test suite |
 
 ---
@@ -220,7 +220,7 @@ When presenting, say: **"zero-knowledge income check, enforced by FHE."** A port
 
 **In scope (MVP demo path):**
 
-- `DayzePayroll`, `ConfidentialUSDC`, `ApprovalPolicy`, `AuditRegistry` and `IncomeCredential` deployed on Arbitrum Sepolia against live CoFHE.
+- `DayzePayroll`, the confidential wrappers (USDC, ARB, ETH), `ApprovalPolicy`, `AuditRegistry` and `IncomeCredential` deployed on Arbitrum Sepolia against live CoFHE.
 - One organisation, one approval policy, one auditor, two or three streams.
 - The live ticking balance in the worker app. The explorer shows nothing readable.
 - One income credential issued to a verifier address, shown valid, then shown **expiring live**.

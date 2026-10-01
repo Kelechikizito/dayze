@@ -16,7 +16,7 @@ Active / Pending ──cancel──► Cancelled
 
 **1. In `createStream`** (replacing the "straight to Active" stub from 05):
 ```solidity
-ebool na = policy.evaluate(msg.sender, FHE.shareEuint64(monthlyAmt, address(policy)));
+ebool na = policy.evaluate(msg.sender, address(token), FHE.shareEuint64(monthlyAmt, address(policy)));
 FHE.allowThis(na);
 FHE.allowPublic(na); // anyone may decrypt this ONE bit
 s.needsApproval = na;
@@ -72,7 +72,7 @@ Or have the policy call back into payroll on the k-th approval. Pick one; the pu
 | Resubmit the same `(id, result, sig)` | Status must be `AwaitingPolicy` |
 | Use stream A's signature for stream B | `verifyDecryptResult` takes **B's** stored handle |
 | Flip the bool with the same sig | Signature covers `(handle, value)`, so verify fails |
-| A payer "raises" a salary after approval to dodge the policy | Any rate change must create a new handle and go back to `AwaitingPolicy` (or v0.1 just forbids edits: cancel and recreate) |
+| A payer "raises" a salary after approval to dodge the policy | Any salary change must create a new handle and go back to `AwaitingPolicy` (or v0.1 just forbids edits: cancel and recreate) |
 | Approvals carried over to a new stream id | Approvals are keyed by `(payer, streamId)`, and ids are never reused |
 
 ## Tests
@@ -96,7 +96,7 @@ forge test --match-contract "PayrollApprovals|DecryptReplay|DayzePayroll" -vv
 - [ ] You can say out loud what one bit leaks: "this salary is above or below a hidden threshold" (§8)
 
 ## Pitfalls
-- `FHE.allowPublic` is permanent for that handle. Only ever call it on the bit, never on the rate.
+- `FHE.allowPublic` is permanent for that handle. Only ever call it on the bit, never on `monthly`.
 - On a live network, decryption takes seconds. The UI needs a "checking policy…" state (checkpoint 10).
 
 ## Commit
