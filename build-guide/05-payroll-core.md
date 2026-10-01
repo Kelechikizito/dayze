@@ -5,9 +5,9 @@ Orgs, encrypted vaults, streams, lazy accrual and no-leak withdrawals. Approvals
 
 ## Data model
 ```solidity
-// ============================================
-// Type Declarations
-// ============================================
+/*//////////////////////////////////////////////////////////////
+                       TYPE DECLARATIONS
+//////////////////////////////////////////////////////////////*/
 
 /// @notice Lifecycle of a stream (AwaitingPolicy and Pending are used from 06)
 enum Status {
@@ -36,9 +36,9 @@ struct Stream {
     ebool needsApproval; // used in 06
 }
 
-// ============================================
-// State Variables
-// ============================================
+/*//////////////////////////////////////////////////////////////
+                        STATE VARIABLES
+//////////////////////////////////////////////////////////////*/
 
 /// @notice Length of one pay period in seconds: 30 days in prod, e.g. 600 (10 min) for the demo
 uint64 public immutable PERIOD;
@@ -48,7 +48,9 @@ uint64 public immutable PERIOD;
 
 ## Interface
 ```solidity
-// ---- external ----
+/*//////////////////////////////////////////////////////////////
+                       EXTERNAL FUNCTIONS
+//////////////////////////////////////////////////////////////*/
 
 /// @notice Registers the caller as a payer with a display name
 /// @param name Org name shown on credentials
@@ -77,7 +79,9 @@ function withdraw(uint256 id, externalEuint64 amount, bytes calldata proof) exte
 /// @param id The stream to cancel
 function cancelStream(uint256 id) external;
 
-// ---- view & pure ----
+/*//////////////////////////////////////////////////////////////
+                     VIEW & PURE FUNCTIONS
+//////////////////////////////////////////////////////////////*/
 
 /// @notice Returns a stream by id
 /// @param id The stream to look up

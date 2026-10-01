@@ -26,16 +26,16 @@ OZ `ERC20` with 6 decimals and a public `mint(address,uint256)` for demos. Deplo
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.25;
 
-// ============================================
-// Imports
-// ============================================
+/*//////////////////////////////////////////////////////////////
+                            IMPORTS
+//////////////////////////////////////////////////////////////*/
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {FHERC20} from "fhenix-confidential-contracts/FHERC20/FHERC20.sol";
 import {FHERC20ERC20Wrapper} from "fhenix-confidential-contracts/FHERC20/extensions/FHERC20ERC20Wrapper.sol";
 
-// ============================================
-// Interfaces, Libraries, Contract
-// ============================================
+/*//////////////////////////////////////////////////////////////
+                INTERFACES, LIBRARIES, CONTRACT
+//////////////////////////////////////////////////////////////*/
 
 /**
  * @title ConfidentialUSDC
@@ -45,11 +45,9 @@ import {FHERC20ERC20Wrapper} from "fhenix-confidential-contracts/FHERC20/extensi
  *      are the only points where amounts are plaintext. Keeps USDC's 6 decimals.
  */
 contract ConfidentialUSDC is FHERC20ERC20Wrapper {
-    // ============================================
-    // Functions
-    // ============================================
-
-    // ---- constructor ----
+    /*//////////////////////////////////////////////////////////////
+                              CONSTRUCTOR
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Sets up cUSDC as a wrapper around the given USDC token
     /// @param usdc The underlying 6-decimal USDC token

@@ -13,9 +13,9 @@ Per Payer: an **encrypted** monthly threshold and a k-of-n approver set. Compute
  *      the threshold and amounts never are.
  */
 interface IApprovalPolicy {
-    // ============================================
-    // Events
-    // ============================================
+    /*//////////////////////////////////////////////////////////////
+                                 EVENTS
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Emitted when a payer sets or replaces their policy
     /// @param payer The payer that owns the policy
@@ -30,11 +30,9 @@ interface IApprovalPolicy {
     /// @param count Approvals so far, including this one
     event Approved(address indexed payer, uint256 indexed streamId, address indexed approver, uint8 count);
 
-    // ============================================
-    // Functions
-    // ============================================
-
-    // ---- external ----
+    /*//////////////////////////////////////////////////////////////
+                           EXTERNAL FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Sets the caller's encrypted threshold and approver set
     /// @param threshold Encrypted monthly threshold, encrypted in the browser
@@ -55,7 +53,9 @@ interface IApprovalPolicy {
     /// @param streamId The stream to approve
     function approve(address payer, uint256 streamId) external;
 
-    // ---- view & pure ----
+    /*//////////////////////////////////////////////////////////////
+                         VIEW & PURE FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Returns how many approvals a stream has
     /// @param payer The payer that owns the stream

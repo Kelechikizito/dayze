@@ -15,9 +15,9 @@ Keep it a plain registry. **The contract that owns a handle is the one that must
  *      handle must call `FHE.allow` itself, so payroll does the allowing.
  */
 interface IAuditRegistry {
-    // ============================================
-    // Events
-    // ============================================
+    /*//////////////////////////////////////////////////////////////
+                                 EVENTS
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Emitted when a payer adds an auditor
     /// @param payer The payer whose auditor set changed
@@ -29,11 +29,9 @@ interface IAuditRegistry {
     /// @param auditor The auditor that was removed
     event AuditorRemoved(address indexed payer, address indexed auditor);
 
-    // ============================================
-    // Functions
-    // ============================================
-
-    // ---- external ----
+    /*//////////////////////////////////////////////////////////////
+                           EXTERNAL FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Adds an auditor to the caller's (payer's) auditor set
     /// @param auditor The address to add
@@ -44,7 +42,9 @@ interface IAuditRegistry {
     /// @param auditor The address to remove
     function removeAuditor(address auditor) external;
 
-    // ---- view & pure ----
+    /*//////////////////////////////////////////////////////////////
+                         VIEW & PURE FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Returns the payer's current auditors
     /// @param payer The payer to look up

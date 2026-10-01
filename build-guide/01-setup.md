@@ -115,14 +115,14 @@ The `0xA11CE`-style constants in the tests are throwaway **test-only** keys that
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.25;
 
-// ============================================
-// Imports
-// ============================================
+/*//////////////////////////////////////////////////////////////
+                            IMPORTS
+//////////////////////////////////////////////////////////////*/
 import {FHE, euint64, externalEuint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 
-// ============================================
-// Interfaces, Libraries, Contract
-// ============================================
+/*//////////////////////////////////////////////////////////////
+                INTERFACES, LIBRARIES, CONTRACT
+//////////////////////////////////////////////////////////////*/
 
 /**
  * @title HelloFHE
@@ -132,18 +132,16 @@ import {FHE, euint64, externalEuint64} from "@fhenixprotocol/cofhe-contracts/FHE
  *      returns a new handle, so every new handle needs fresh `allowThis` and `allowSender` calls.
  */
 contract HelloFHE {
-    // ============================================
-    // State Variables
-    // ============================================
+    /*//////////////////////////////////////////////////////////////
+                            STATE VARIABLES
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Handle to the encrypted stored value
     euint64 private s_stored;
 
-    // ============================================
-    // Functions
-    // ============================================
-
-    // ---- external ----
+    /*//////////////////////////////////////////////////////////////
+                           EXTERNAL FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Stores an encrypted value supplied by the caller
     /// @param value Encrypted input handle, bound to this contract
@@ -161,7 +159,9 @@ contract HelloFHE {
         FHE.allowSender(s_stored);
     }
 
-    // ---- view & pure ----
+    /*//////////////////////////////////////////////////////////////
+                         VIEW & PURE FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Returns the handle to the encrypted stored value
     /// @return The `euint64` handle; only allowed addresses can unseal it
@@ -177,17 +177,17 @@ contract HelloFHE {
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.25;
 
-// ============================================
-// Imports
-// ============================================
+/*//////////////////////////////////////////////////////////////
+                            IMPORTS
+//////////////////////////////////////////////////////////////*/
 import {CofheTest} from "@cofhe/foundry-plugin/CofheTest.sol";
 import {CofheClient} from "@cofhe/foundry-plugin/CofheClient.sol";
 import {externalEuint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import {HelloFHE} from "../src/HelloFHE.sol";
 
-// ============================================
-// Interfaces, Libraries, Contract
-// ============================================
+/*//////////////////////////////////////////////////////////////
+                INTERFACES, LIBRARIES, CONTRACT
+//////////////////////////////////////////////////////////////*/
 
 /**
  * @title HelloFHETest
@@ -196,9 +196,9 @@ import {HelloFHE} from "../src/HelloFHE.sol";
  * @dev `CofheTest` already inherits forge-std `Test`. `ALICE_PK` is a throwaway test-only key.
  */
 contract HelloFHETest is CofheTest {
-    // ============================================
-    // State Variables
-    // ============================================
+    /*//////////////////////////////////////////////////////////////
+                            STATE VARIABLES
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Test-only private key used to sign mock encrypted inputs
     uint256 private constant ALICE_PK = 0xA11CE;
@@ -209,11 +209,9 @@ contract HelloFHETest is CofheTest {
     /// @notice Contract under test
     HelloFHE private s_hello;
 
-    // ============================================
-    // Functions
-    // ============================================
-
-    // ---- public ----
+    /*//////////////////////////////////////////////////////////////
+                            PUBLIC FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Deploys the CoFHE mocks, connects alice and deploys `HelloFHE`
     function setUp() public {

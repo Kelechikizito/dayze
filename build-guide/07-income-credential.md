@@ -22,7 +22,9 @@ Also expose, for the verifier page: org name (from payroll), `streamActiveSince`
 
 ## Interface
 ```solidity
-// ---- external ----
+/*//////////////////////////////////////////////////////////////
+                       EXTERNAL FUNCTIONS
+//////////////////////////////////////////////////////////////*/
 
 /// @notice Issues an "earns >= threshold per month" credential to one verifier
 /// @param streamId The caller's active stream
@@ -36,7 +38,9 @@ function issue(uint256 streamId, address verifier, uint64 threshold, uint64 expi
 /// @param id The credential to revoke
 function revoke(uint256 id) external;
 
-// ---- view & pure ----
+/*//////////////////////////////////////////////////////////////
+                     VIEW & PURE FUNCTIONS
+//////////////////////////////////////////////////////////////*/
 
 /// @notice Checks whether a credential is unrevoked and unexpired
 /// @param id The credential to check
