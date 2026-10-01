@@ -166,7 +166,7 @@ Plaintext checks that are fine to revert on: `msg.sender == s.payee`, `s.status 
 ### Cancel
 Set `Cancelled` and stop accrual by storing `endTime`, then use `min(now, endTime)` in `_accrued`. The payee can still withdraw what accrued before cancellation. Add `endTime` to the struct.
 
-## Tests: `test/DayzePayroll.t.sol`
+## Tests: `test/unit/DayzePayrollTest.t.sol` + `test/fuzz/DayzePayrollFuzzTest.t.sol`
 Deploy with `PERIOD = 30 days`, and in a second contract with `PERIOD = 600`, to check the math holds for both.
 
 1. `createOrg`; creating twice reverts

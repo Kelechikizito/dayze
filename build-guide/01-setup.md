@@ -171,7 +171,7 @@ contract HelloFHE {
 }
 ```
 
-`test/HelloFHE.t.sol`:
+`test/unit/HelloFHETest.t.sol`:
 
 ```solidity
 // SPDX-License-Identifier: MIT
@@ -183,7 +183,7 @@ pragma solidity 0.8.25;
 import {CofheTest} from "@cofhe/foundry-plugin/CofheTest.sol";
 import {CofheClient} from "@cofhe/foundry-plugin/CofheClient.sol";
 import {externalEuint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
-import {HelloFHE} from "../src/HelloFHE.sol";
+import {HelloFHE} from "src/HelloFHE.sol";
 
 /*//////////////////////////////////////////////////////////////
                 INTERFACES, LIBRARIES, CONTRACT

@@ -48,7 +48,7 @@ If you've read older Fhenix examples, these are different now:
 
 ## Progress
 
-- [ ] 01 Setup
+- [x] 01 Setup
 - [ ] 02 ConfidentialUSDC
 - [ ] 03 AuditRegistry
 - [ ] 04 ApprovalPolicy
@@ -67,30 +67,30 @@ If you've read older Fhenix examples, these are different now:
 
 ```
 src/
+  HelloFHE.sol                   (delete after 02)
   MockUSDC.sol
   ConfidentialUSDC.sol
   AuditRegistry.sol
   ApprovalPolicy.sol
   DayzePayroll.sol
   IncomeCredential.sol
-  interfaces/        IDayzePayroll.sol, IApprovalPolicy.sol, IAuditRegistry.sol
+  interfaces/   IAuditRegistry.sol, IApprovalPolicy.sol, IDayzePayroll.sol
+  libraries/    AuditAccess.sol  (shared _allowAuditors helper)
 test/
-  HelloFHE.t.sol     (delete after 01)
-  ConfidentialUSDC.t.sol
-  AuditRegistry.t.sol
-  ApprovalPolicy.t.sol
-  DayzePayroll.t.sol
-  PayrollApprovals.t.sol
-  DecryptReplay.t.sol
-  IncomeCredential.t.sol
-  fork/Live.t.sol
-  utils/DayzeTestBase.sol
+  unit/         HelloFHETest, ConfidentialUSDCTest, AuditRegistryTest, ApprovalPolicyTest,
+                DayzePayrollTest, PayrollApprovalsTest, DecryptReplayTest, IncomeCredentialTest  (*.t.sol)
+  fuzz/         DayzePayrollFuzzTest.t.sol
+  forks/        LiveForkTest.t.sol
+  mocks/        AuditHarness.sol, PayrollHarness.sol
+  utils/        DayzeTestBase.sol
 script/
   Deploy.s.sol
-  Seed.s.sol
+  seed.sh                        (cast + keystore; encryption via frontend/scripts/encrypt.ts)
 frontend/
   app/(employer|worker|verify|audit)/...
   lib/contracts/     addresses.ts + ABIs
 ```
+
+Tests import with root-style paths (`import {X} from "src/X.sol";`). Every contract uses the pinned `pragma solidity 0.8.25;` to match `solc_version` in `foundry.toml`.
 
 Use `/sol-style-guide` to scaffold each new contract so layout and NatSpec stay consistent.

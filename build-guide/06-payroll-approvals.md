@@ -76,12 +76,12 @@ Or have the policy call back into payroll on the k-th approval. Pick one; the pu
 | Approvals carried over to a new stream id | Approvals are keyed by `(payer, streamId)`, and ids are never reused |
 
 ## Tests
-`test/PayrollApprovals.t.sol`:
+`test/unit/PayrollApprovalsTest.t.sol`:
 1. Salary under threshold → resolve(false) → `Active`; `startTime == block.timestamp` at resolve
 2. Over threshold → resolve(true) → `Pending`; withdraw reverts; 1 of 2 approvals → activate reverts; 2 of 2 → `Active`
 3. No accrual while `Pending`: warp 1 day before activation, the accrued amount counts only from activation
 
-`test/DecryptReplay.t.sol` (the dedicated suite from §8):
+`test/unit/DecryptReplayTest.t.sol` (the dedicated suite from §8):
 1. Resolve twice → second reverts `DayzePayroll__AlreadyResolved`
 2. Stream A's `(value, sig)` on stream B → `DayzePayroll__BadDecryptProof`
 3. Correct sig, flipped bool → `DayzePayroll__BadDecryptProof`

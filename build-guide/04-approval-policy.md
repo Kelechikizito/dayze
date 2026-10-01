@@ -108,8 +108,8 @@ function evaluate(address payer, sharedEuint64 sharedMonthly) external onlyPayro
 
 **Approvals** are plaintext: who approved is public, the amount isn't. Use `mapping(address payer => mapping(uint256 streamId => mapping(address => bool))) approved` plus a counter. Only the payer's approvers can approve, once each.
 
-## Tests: `test/ApprovalPolicy.t.sol`
-Use a tiny `PayrollHarness` that shares a value and calls `evaluate`, so you don't need the real payroll yet.
+## Tests: `test/unit/ApprovalPolicyTest.t.sol`
+The interface goes in `src/interfaces/IApprovalPolicy.sol`. Use a tiny `PayrollHarness` (in `test/mocks/PayrollHarness.sol`) that shares a value and calls `evaluate`, so you don't need the real payroll yet.
 
 1. `setPolicy` stores the threshold; the payer can view it (`expectPlaintext`)
 2. `evaluate` with monthly 12,000 vs threshold 10,000 → `true`; 8,000 → `false`; exactly 10,000 → `false` (it's `gt`)

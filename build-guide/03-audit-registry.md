@@ -73,13 +73,13 @@ function _allowAuditors(address payer, euint64 h) internal {
     }
 }
 ```
-Put it in an abstract contract or library so `DayzePayroll` and `IncomeCredential` can share it.
+Put it in `src/libraries/AuditAccess.sol` as an `internal` library function that takes the registry as its first argument (`AuditAccess.allowAuditors(registry, payer, h)`). Internal library functions are inlined, so `FHE.allow` still runs in the contract that owns the handle, and `DayzePayroll` and `IncomeCredential` can share it. Put the interface in `src/interfaces/IAuditRegistry.sol`.
 
-## Tests: `test/AuditRegistry.t.sol`
+## Tests: `test/unit/AuditRegistryTest.t.sol`
 1. Add, list and remove auditors; events emitted
 2. Only the payer controls their own set (bob can't add to employer's set)
 3. Cap enforced
-4. **Sticky access (document it, don't fix it):** a tiny harness contract creates handle H, allows auditors, then the auditor is removed and a new handle H2 is created. Assert the auditor is still allowed on H and not on H2 with `FHE.isAllowed` (or the mock ACL). This is the residual risk in §8. The test proves you understand it.
+4. **Sticky access (document it, don't fix it):** a tiny harness contract in `test/mocks/AuditHarness.sol` creates handle H, allows auditors, then the auditor is removed and a new handle H2 is created. Assert the auditor is still allowed on H and not on H2 with `FHE.isAllowed` (or the mock ACL). This is the residual risk in §8. The test proves you understand it.
 
 ## ✅ Checkpoint
 ```bash

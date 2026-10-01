@@ -98,7 +98,7 @@ Note: `rate × PERIOD` can be slightly below the entered monthly salary because 
 - The credential is "as of issuance". A later salary cut doesn't update it; short expiries keep it honest.
 - It proves what a contract pays, not who the employer is.
 
-## Tests: `test/IncomeCredential.t.sol`
+## Tests: `test/unit/IncomeCredentialTest.t.sol`
 1. Rate 3,000/mo, threshold 2,500 → `ok == true`; threshold 4,000 → `false`
 2. `ok` allowed to the verifier and **not** to bob or the payer
 3. Non-payee issue reverts; issuing on a `Pending`/`Cancelled` stream reverts

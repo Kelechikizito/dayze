@@ -59,7 +59,7 @@ Verified: this compiles as-is with the forge-installed `v0.4.0` and the remappin
 ### Library linking
 The wrapper `delegatecall`s an external library, `ERC20ConfidentialLib`. **Forge links and deploys external libraries automatically** in `forge test` and `forge script`, so there's nothing to do until you deploy (checkpoint 08). If you ever deploy with raw `forge create`, pass `--libraries`.
 
-## Tests: `test/ConfidentialUSDC.t.sol`
+## Tests: `test/unit/ConfidentialUSDCTest.t.sol`
 Put shared setup in `test/utils/DayzeTestBase.sol` (is `CofheTest`: deploy mocks, `MockUSDC`, `ConfidentialUSDC`, clients for employer/alice/bob). Every later test inherits it.
 
 1. `shield` 1,000 USDC → `expectPlaintext(cusdc.confidentialBalanceOf(employer), 1000e6)`, USDC balance decreased

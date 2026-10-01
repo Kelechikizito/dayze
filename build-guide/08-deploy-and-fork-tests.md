@@ -63,14 +63,14 @@ It creates the org, sets the policy (threshold $10k), adds an auditor, shields a
 
 **Policy resolution (`resolvePolicy`)** needs no special key: the employer UI already runs `decryptForTx` and submits it (checkpoint 10), and the function is permissionless. You don't need a background keeper holding a key. For the seeded $12k stream, open the employer console once and it resolves.
 
-### 3. Fork tests: `test/fork/Live.t.sol`
+### 3. Fork tests: `test/forks/LiveForkTest.t.sol`
 Goal: prove your contracts work against the **real** Task Manager, not just mocks.
-- Tag them so the default run skips them: `forge test --no-match-path "test/fork/*"` locally.
+- Tag them so the default run skips them: `forge test --no-match-path "test/forks/*"` locally.
 - What's realistic on a fork: plaintext-path checks, reading deployed state, that `FHE.asEuint64(uint)` trivial encryptions and FHE ops don't revert, and that ACL grants exist (`FHE.isAllowed`).
 - What isn't: decrypting results inside Forge. The threshold network is off-chain. Do real end-to-end decrypts through the frontend (or a `decryptForTx` call in `encrypt.ts`, which needs no key) and treat that as your integration test.
 
 ```bash
-forge test --match-path "test/fork/*" --fork-url $ARBITRUM_SEPOLIA_RPC_URL -vv
+forge test --match-path "test/forks/*" --fork-url $ARBITRUM_SEPOLIA_RPC_URL -vv
 ```
 
 ### 4. Export to the frontend
