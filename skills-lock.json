@@ -7,6 +7,13 @@
       "skillPath": "skills/colosseum-copilot/SKILL.md",
       "computedHash": "4038e366dd3bbcbc3065abc61c5cc9453b29655f2e5c390a8d3441181d6021b5"
     },
+    "privy": {
+      "source": "docs.privy.io",
+      "sourceUrl": "https://docs.privy.io",
+      "sourceType": "well-known",
+      "computedHash": "1437389e8a40ed9a7e3544f5b2f61b3b807a1586ea249ccf1ec778f0db41f5e3",
+      "wellKnownDigest": "sha256:8facae29c93276efc45b2a49651fb837041a8d47df75d14fba5d798a8d61326b"
+    },
     "refero-design": {
       "source": "referodesign/refero_skill",
       "sourceType": "github",
