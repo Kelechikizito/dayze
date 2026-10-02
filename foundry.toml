@@ -8,9 +8,11 @@ solc_version = "0.8.25"
 evm_version = "cancun"
 auto_detect_remappings = false
 
-# The CoFHE mock coprocessor contracts exceed the EIP-170 24KB limit. They are
-# test-only and never deployed to a live chain, so the limit is raised locally.
-code_size_limit = 100000
+# The CoFHE mock coprocessor contracts exceed the EIP-170 24KB limit. So do test
+# contracts: CofheTest alone is ~76KB and each CofheClient adds ~25KB. None of
+# them go to a live chain, so the limit is raised locally. Check real contracts
+# against 24KB with `forge build --sizes`.
+code_size_limit = 300000
 
 # Required by CoFHE: without isolate, encrypted values can be used across calls
 # without the permission checks that a production chain enforces, so tests pass
