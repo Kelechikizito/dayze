@@ -85,15 +85,18 @@ contract ConfidentialNative is FHERC20NativeWrapper {
 }
 ```
 
-### Mocks (`test/mocks/`)
-- `MockERC20.sol`: OZ `ERC20` with set decimals and a public `mint(address,uint256)`. Deploy it twice in tests: 6-decimal "USDC" and 18-decimal "ARB". This tests both decimal paths. On testnet, deploying your own is easier than finding a faucet.
-- `MockWETH.sol`: minimal WETH (`deposit`, `withdraw`, 18 decimals) that fits `IWETH`. On Arbitrum Sepolia, use the real WETH. Look up its address on Arbiscan. Don't trust a hardcoded one.
+### Mocks: import them, don't write them
+`fhenix-confidential-contracts/test/ERC20_Harness.sol` has both:
+- `ERC20_Harness(name, symbol, decimals)`: ERC20 with open `mint`. Deploy it twice in tests: 6-decimal "USDC" and 18-decimal "ARB". This tests both decimal paths. On testnet, deploying your own is easier than finding a faucet.
+- `WETH_Harness`: `deposit`, `withdraw`, 18 decimals. Fits `IWETH`. On Arbitrum Sepolia, use the real WETH. Look up its address on Arbiscan. Don't trust a hardcoded one.
+
+OZ's `ERC20Mock` doesn't fit: its decimals are fixed at 18, and OZ has no WETH mock.
 
 ### Library linking
 The wrappers `delegatecall` an external library, `ERC20ConfidentialLib`. **Forge links it for you** in `forge test` and `forge script`. Nothing to do until deploy (08). With raw `forge create`, pass `--libraries`.
 
 ## Tests: `test/unit/ConfidentialTokenTest.t.sol`
-Put shared setup in `test/utils/DayzeTestBase.sol`. It is a `CofheTest` that deploys mocks, `MockERC20` as USDC (6) and ARB (18), `MockWETH`, one `ConfidentialToken` per ERC20, `ConfidentialNative`, and clients for employer/alice/bob. Every later test inherits it.
+Put shared setup in `test/utils/DayzeTestBase.sol`. It is a `CofheTest` that deploys mocks, `ERC20_Harness` as USDC (6) and ARB (18), `WETH_Harness`, one `ConfidentialToken` per ERC20, `ConfidentialNative`, and clients for employer/alice/bob. Every later test inherits it.
 
 1. `shield` 1,000 USDC → `expectPlaintext(cusdc.confidentialBalanceOf(employer), 1000e6)`. USDC balance goes down.
 2. `shield` 1.5 ARB (18 decimals) → confidential balance `1.5e6`. `rate() == 1e12`. Dust below `1e12` is never pulled from the sender.

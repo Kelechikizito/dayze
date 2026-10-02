@@ -79,7 +79,7 @@ test/
                 DayzePayrollTest, PayrollApprovalsTest, DecryptReplayTest, IncomeCredentialTest  (*.t.sol)
   fuzz/         DayzePayrollFuzzTest.t.sol
   forks/        LiveForkTest.t.sol
-  mocks/        MockERC20.sol, MockWETH.sol, AuditHarness.sol, PayrollHarness.sol
+  mocks/        AuditHarness.sol, PayrollHarness.sol  (ERC20 + WETH mocks come from Fhenix's ERC20_Harness.sol)
   utils/        DayzeTestBase.sol
 script/
   Deploy.s.sol

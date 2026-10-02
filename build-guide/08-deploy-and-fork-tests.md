@@ -8,7 +8,7 @@ All contracts live on Arbitrum Sepolia with real CoFHE. Demo data seeded. Addres
 ### 1. `script/Deploy.s.sol`
 Deploy order and wiring:
 ```text
-MockERC20("USDC", 6), MockERC20("ARB", 18)   ← demo tokens you can mint
+ERC20_Harness("USDC", 6), ERC20_Harness("ARB", 18)   ← demo tokens you can mint (Fhenix test harness)
 ConfidentialToken(usdc, ...)                ← forge auto-deploys + links ERC20ConfidentialLib
 ConfidentialToken(arb, ...)
 ConfidentialNative(WETH)                    ← Arbitrum Sepolia's canonical WETH, from env
