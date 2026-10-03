@@ -5,6 +5,22 @@ Do everything in architecture §7.1 and §7.2 from the browser.
 
 ## Sections (build in this order)
 
+### 0. Onboarding (`/onboarding/employer`)
+A first-time employer walks through the sections below as one `<Stepper>` (09 §7). Each step reuses the section's component, so you build each thing once.
+
+| # | Step | Done when | Skippable |
+|---|---|---|---|
+| 1 | Sign in (Privy) | `usePrivy().authenticated` | no |
+| 2 | Create your organisation (§1) | `orgs(me).exists` | no |
+| 3 | Add funds (§2) | vault balance handle is set for any token | no |
+| 4 | Set approval rules (§3) | `policy.hasPolicy(me)` | yes |
+| 5 | Add an auditor (§4) | `auditorsOf(me).length > 0` | yes |
+| 6 | Invite your first employee (§5) | invite link copied | yes |
+
+At the end, go to `/employer`. Skipped steps show as a "Finish setup" card on the dashboard.
+
+Copy: one short line per step. Example for step 3: "Shield tokens and move them into your private payroll vault."
+
 ### 1. Organisation
 - If `orgs(address).exists` is false → form: name → `createOrg`
 - Else show the name + a "Private payroll" badge
@@ -27,9 +43,12 @@ Each step is a tx, so show a stepper:
 - Note under the list: "Removing an auditor stops access to *new* data only."
 
 ### 5. Streams
+- **Invite:** a "Copy invite link" button → `https://<app>/onboarding/employee?org=<payer>`. The link holds only the org address. No salary, no secret.
+- The new employee signs up and sends back their wallet address (11 §0). Paste it into the create form. A QR scan is a nice extra.
 - Create: payee address + token + monthly salary → encrypt for `PAYROLL` → `createStream(payee, wrapper, …)`
 - After the tx: `AwaitingPolicy` → auto-run `decryptForTx(needsApproval)` → `resolvePolicy`. Show "Checking policy privately…"
-- Table: payee · token · status · monthly (unsealed for the payer, blurred until hover) · started · cancel
+- Table: payee · **human** · token · status · monthly (unsealed for the payer, blurred until hover) · started · cancel
+- **Human** column: `humanRegistry.isHuman(payee)` (07a). Show "✓ verified human" or "not verified". It's a hint against ghost employees, not a block. Show it in the create form too, right after the address is pasted.
 
 ### 6. Approvals queue
 - List `Pending` streams for orgs where you're an approver → `approve`. When the count hits k, show "Activate" (`activateApproved`).
@@ -39,10 +58,12 @@ Each step is a tx, so show a stepper:
 Until the subgraph exists (13), use `getLogs` on `StreamCreated` filtered by payer, plus `streamsOfPayer`. Fine at demo scale.
 
 ## ✅ Checkpoint
-- [ ] Fresh wallet → create org → shield + fund → set policy → add auditor, all in the UI
+- [ ] New email sign-up → onboarding stepper → create org → shield + fund → set policy → add auditor → copy invite link, all in the UI
+- [ ] Refresh mid-onboarding → the stepper resumes at the right step (it reads the chain)
+- [ ] A verified payee shows "✓ verified human". An unverified one shows "not verified".
 - [ ] Create a $3k stream → goes `Active` with no manual steps
 - [ ] Create a $12k stream → `Pending` → second wallet approves → `Active`
 - [ ] Every FHE action shows `<TxStatus>` states. No silent waits over 2 seconds.
 
 ## Commit
-`feat(frontend): employer console — org, funding, policy, auditors, streams, approvals`
+`feat(frontend): employer onboarding and console — org, funding, policy, auditors, streams, approvals`

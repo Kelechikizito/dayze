@@ -8,9 +8,13 @@ A landlord opens a link and sees ✅ / ❌ plus metadata. Nothing else (architec
 ### Page
 1. Read `credential.get(id)` and `isValid(id)` with no wallet. Metadata is plaintext.
 2. Show: issuing org (`payroll` org name), threshold in the credential's token ("≥ 3,000 USDC / month", converted with the wrapper's `rate()`), stream active since, issued at, expires at (live countdown).
+   Also show **"Issued by a verified human (World ID)"** if `payeeIsHuman` is true (07, 07a). Otherwise show "Issuer not verified as a unique human". Neutral wording, not an error.
 3. Status banner: **Valid**, **Expired** or **Revoked**. If `isValid` is false, don't offer to decrypt.
-4. "Reveal result" → connect wallet. If `address != verifier`, show "This credential was issued to 0xABC…". Else create an ACP → `decryptForView(ok, FheTypes.Bool)` → big ✅ / ❌.
+4. "Reveal result" → sign in with Privy (09). A landlord with no wallet can use email. If `address != verifier`, show "This credential was issued to 0xABC…". Else create an ACP → `decryptForView(ok, FheTypes.Bool)` → big ✅ / ❌.
 5. Footer: "You learned one fact: whether this income meets your threshold. Not the salary."
+
+### Getting the verifier's address
+A credential is issued to one address, so the worker needs the landlord's address first. Add `/verify` (no id): the landlord signs in with Privy and sees their address with a copy button and a QR code. Copy: "Send this to the person whose income you want to check." Use the same embedded wallet later to reveal the result.
 
 ### Demo detail
 Keep the page open while the credential expires. Poll `isValid` every few seconds, or compute it from `expiresAt` in the browser. Flip the banner to **Expired** live. That's the moment from architecture §9.
@@ -29,6 +33,7 @@ Auditors unseal what they were granted and export a CSV locally (architecture §
 
 ## ✅ Checkpoint
 - [ ] Verifier wallet sees ✅ for a passing threshold and ❌ for a failing one
+- [ ] The "verified human" line matches `payeeIsHuman`
 - [ ] Another wallet can't unseal
 - [ ] Credential flips to Expired on screen with no reload
 - [ ] Auditor sees all streams and downloads a correct CSV. The network tab shows no upload.
