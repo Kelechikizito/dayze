@@ -15,13 +15,15 @@ ConfidentialNative(WETH)                    ← Arbitrum Sepolia's canonical WET
 AuditRegistry
 ApprovalPolicy
 DayzePayroll(policy, registry, PERIOD)
-IncomeCredential(payroll)
+HumanRegistry(ATTESTER)                     ← attester address from env (07a)
+IncomeCredential(payroll, humanRegistry)
 policy.setPayroll(payroll)                  ← one-shot setters from 04/07
 payroll.setCredential(credential)
 payroll.addToken(cusdc), addToken(carb), addToken(ceth)
 ```
 - Read `PERIOD` from env (`DEMO_PERIOD=600`). Default: 30 days.
 - Read `WETH` from env. Look up the address on Arbiscan.
+- Read `ATTESTER` from env. It's the **address** of the backend attester key (07a), not the key.
 - To add a real ERC20 later: deploy one more `ConfidentialToken` and call `addToken`. No payroll redeploy.
 - Write addresses to `deployments/421614.json` with `vm.writeJson`.
 
@@ -97,7 +99,7 @@ forge test --match-path "test/forks/*" --fork-url $ARBITRUM_SEPOLIA_RPC_URL -vv
 - Copy `deployments/421614.json` into `frontend/lib/contracts/addresses.ts`.
 
 ## ✅ Checkpoint
-- [ ] All contracts (3 wrappers, 2 mock tokens, 4 core contracts + library) deployed and verified on Arbiscan
+- [ ] All contracts (3 wrappers, 2 mock tokens, 5 core contracts + library) deployed and verified on Arbiscan
 - [ ] `s_supportedTokens` is true for all three wrappers
 - [ ] Seed done: 1 org, 1 policy, 1 auditor, 4 streams (one `Pending`)
 - [ ] On Arbiscan, a `withdraw` tx shows **no readable amount**. Screenshot it for the pitch.

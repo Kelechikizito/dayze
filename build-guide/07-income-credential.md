@@ -16,9 +16,11 @@ struct Credential {
     uint64 expiresAt;
     uint64 streamActiveSince;
     bool revoked;
+    bool payeeIsHuman; // HumanRegistry.isHuman(payee) at issue time (07a)
     ebool ok;
 }
 ```
+The constructor takes `IHumanRegistry` next to `payroll`. In `issue`, set `payeeIsHuman = humanRegistry.isHuman(msg.sender)`. Store it at issue time, so the verifier sees what was true when the credential was made.
 For the verifier page, also expose: org name (from payroll), `streamActiveSince`, and maybe "months funded". Architecture §8 uses these to fight fake employers. Months funded needs vault ÷ monthly, which is encrypted. So either **skip it in v0.1**, or compute another encrypted bit (`vaultOf(payer, token) >= monthly * 3`) and allow it to the verifier too.
 
 A credential covers **one stream in one token**. "Earns ≥ 3,000 cUSDC" and "earns ≥ 1 cETH" are separate credentials. "≥ $X across all streams" needs prices. Out of scope for v0.1.
@@ -109,6 +111,7 @@ Why not `allowSender`? The payee already knows their salary, so the bit tells th
 6. Revoke → `isValid` false. Non-payee revoke reverts.
 7. Stream cancelled after issuance: `isValid` stays true (as of issuance). You may also check stream status in `isValid`. Both choices are fine. Just document it.
 8. Demo timing: with `PERIOD = 600`, issue with a 2-minute expiry and warp past it
+9. Payee registered in `HumanRegistry` → `payeeIsHuman == true`. Unregistered payee → `false`, and `issue` still works.
 
 ## ✅ Checkpoint
 ```bash
