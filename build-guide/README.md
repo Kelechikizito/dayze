@@ -49,7 +49,7 @@ Each checkpoint gives the **goal, interfaces, tricky CoFHE snippets, tests, and 
 ## Progress
 
 - [x] 01 Setup
-- [ ] 02 Confidential tokens
+- [x] 02 Confidential tokens
 - [ ] 03 AuditRegistry
 - [ ] 04 ApprovalPolicy
 - [ ] 05 DayzePayroll core
