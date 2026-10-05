@@ -191,7 +191,7 @@ s.token.confidentialTransfer(s.payee, FHE.shareEuint64(pay, address(s.token)));
 ```
 An over-withdrawal becomes a **zero transfer, never a revert**. A revert would tell watchers "the request was more than the balance".
 
-Plaintext checks that may revert: `msg.sender == s.payee`, `s.status == Active`.
+Plaintext checks that may revert: `msg.sender == s.payee`, and `s.status` is `Active` or `Cancelled`. A cancelled stream still pays out what accrued before cancel (see **Cancel**).
 
 ### Cancel
 Set `Cancelled` and store `endTime`. In `_accrued`, use `min(now, endTime)`. This freezes accrual. The payee can still withdraw what accrued before cancel. Add `endTime` to the struct.
