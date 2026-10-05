@@ -7,6 +7,41 @@ A worker proves once, with World ID, that they are a real and unique human. The 
 
 Build this before 07, because `IncomeCredential` reads it.
 
+## Steps
+Do these in order. The sections after **Steps** have the code and details each to-do points to.
+
+### 1. Contract
+**To do:**
+- [ ] Create `src/interfaces/IHumanRegistry.sol` with `isHuman`
+- [ ] Create `src/HumanRegistry.sol` with `/sol-style-guide`. Inherit OZ `EIP712` and `Ownable`.
+- [ ] Add the storage in **Data model** and the functions in **Interface**
+- [ ] Write `register` as in **Key snippet**
+
+### 2. Tests
+**To do:**
+- [ ] Create `test/unit/HumanRegistryTest.t.sol` with the 7 tests in **Tests** below
+- [ ] Run the command in **Checkpoint**, then commit the contract and tests
+
+### 3. World Developer Portal
+**To do:**
+- [ ] Create an app and an action called `dayze-register`
+- [ ] Save `app_id`, `rp_id` and the signing key in a password manager. The key is shown once.
+
+### 4. Attester key
+**To do:**
+- [ ] Make a new key just for this: `cast wallet new`
+- [ ] Put its **address** in the root `.env` as `ATTESTER` (08 needs it)
+- [ ] Put the **private key** in Vercel as `ATTESTER_PRIVATE_KEY`, server only
+- [ ] For local dev, put it in `frontend/.env.local`. Check `git check-ignore frontend/.env.local`.
+
+### 5. Backend routes (now, or when you reach 11 §0)
+**To do:**
+- [ ] In `frontend/`, run `npm install @worldcoin/idkit @worldcoin/idkit-core`
+- [ ] Create `app/api/world-id/rp-signature/route.ts` (**Backend** step 2)
+- [ ] Create `app/api/world-id/attest/route.ts` (**Backend** step 3)
+- [ ] Test both with the World simulator (`environment: "staging"`)
+- [ ] Commit the routes separately from the contract
+
 ## Why a backend attester?
 World ID has no onchain verifier on Arbitrum. Its router only lives on World Chain, Ethereum, Base, Optimism and Polygon. So:
 1. The worker makes a proof in World App (IDKit).

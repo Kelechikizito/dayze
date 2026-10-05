@@ -1,6 +1,14 @@
 # 14 — Demo + submission
 
 ## 1. Demo setup
+
+**To do:**
+- [ ] Deploy with `DEMO_PERIOD=600`
+- [ ] Seed the org, policy, auditor and the $3k and $6k streams
+- [ ] Make 4 browser profiles and sign each one in (list below)
+- [ ] Register the Worker with World ID ahead of time
+- [ ] Fund each embedded wallet with test ETH
+
 - Deploy with `PERIOD = 600` (a "month" is 10 minutes) so salaries visibly grow
 - Pre-seed: org "Acme Labs", $10k policy with 2 approvers, 1 auditor, $3k and $6k streams (Active). Create the $12k one live.
 - One browser profile per role: **Employer**, **Worker**, **Landlord**, **Auditor**. Each is signed in with Privy and has an ACP signed. Use email sign-up for the Worker and Landlord to show that no wallet extension is needed. Fund each embedded wallet with a little test ETH.
@@ -8,6 +16,12 @@
 - Unlock the `dayze-deployer` keystore only to deploy/seed. Nothing runs in the background with a key (the employer UI resolves policy checks).
 
 ## 2. Demo script (~3 minutes)
+
+**To do:**
+- [ ] Rehearse the script below on live testnet at least twice
+- [ ] Time each part. Cut words, not steps, if you run long.
+- [ ] Record a backup video
+
 1. **Problem (20s):** show a normal USDC payroll tx on Arbiscan. "Everyone can see this salary, forever."
 2. **Employer (40s):** create the 12k cUSDC stream → "Checking policy privately…" → Pending → second wallet approves → Active. "The threshold is encrypted. The contract compared two numbers it can't read."
 3. **Worker (40s):** balance ticking. "Zero transactions." Withdraw. Open the tx on Arbiscan: **nothing readable**.
@@ -18,6 +32,11 @@
 Rehearse on live testnet at least twice. Decrypt time varies. Record a backup video.
 
 ## 3. Talking points (from architecture §5, §8)
+
+**To do:**
+- [ ] Say each point below out loud once
+- [ ] Put the limits on one slide
+
 - Say **"zero-knowledge income check, enforced by FHE"**, not "ZK proof". Be ready to say why FHE beats a SNARK here: the check runs on the stream's own ciphertext, so it can't drift from what the worker is really paid.
 - Be open about limits:
   - shield/unshield amounts are public

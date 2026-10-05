@@ -3,6 +3,42 @@
 ## Goal
 Streams above the hidden threshold wait for k approvers. Only the `needsApproval` bit is ever decrypted (architecture §7.2, §8). This is your first real **async decrypt** flow. §8 notes that similar projects skip replay tests. We don't.
 
+## Steps
+Do these in order. The sections after **Steps** have the code and details each to-do points to.
+
+### 1. Prepare payroll
+**To do:**
+- [ ] Add events `PolicyCheckRequested(id, handle)` and `StreamPending(id)`
+- [ ] Add errors `AlreadyResolved`, `BadDecryptProof`, `NotPending`, `NotEnoughApprovals`
+- [ ] Move the "set `Active` and `startTime`" code from `createStream` into `_activate(s, id)`
+
+### 2. Ask the policy in `createStream`
+**To do:**
+- [ ] Share `monthly` with the policy and call `evaluate` (**Flow 1** below)
+- [ ] `allowThis` and `allowPublic` the result bit. Never `allowPublic` anything else.
+- [ ] Store `needsApproval`. Set `AwaitingPolicy`. Emit `PolicyCheckRequested`.
+- [ ] In `DayzeTestBase`, call `policy.setPayroll(payroll)` after deploying both
+
+### 3. `resolvePolicy`
+**To do:**
+- [ ] Add it as in **Flow 3**: status check, `verifyDecryptResult`, then `Pending` or `_activate`
+
+### 4. `activateApproved`
+**To do:**
+- [ ] Add it as in **Flow 4**
+- [ ] Let `cancelStream` work on `Pending` streams too
+
+### 5. Fix the 05 tests
+**To do:**
+- [ ] Add a `_createActiveStream` helper to `DayzeTestBase`: create → decrypt the bit → `resolvePolicy`
+- [ ] Switch the 05 tests to the helper. Run them. They must still pass.
+
+### 6. New tests
+**To do:**
+- [ ] Write `test/unit/PayrollApprovalsTest.t.sol` (3 tests in **Tests** below)
+- [ ] Write `test/unit/DecryptReplayTest.t.sol` (5 tests in **Tests** below)
+- [ ] Run the command in **Checkpoint**, then commit
+
 ## State machine
 ```
 createStream ─► AwaitingPolicy ──resolvePolicy(false)──► Active

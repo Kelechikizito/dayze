@@ -3,6 +3,41 @@
 ## Goal
 A worker issues "earns ≥ X of token T per month" to one verifier, with an expiry. The verifier learns one bit (architecture §6.2, §7.4). This feature sets Dayze apart. Make it solid.
 
+## Steps
+Do these in order. The sections after **Steps** have the code and details each to-do points to.
+
+### 1. Contract skeleton
+**To do:**
+- [ ] Create `src/IncomeCredential.sol` with `/sol-style-guide`
+- [ ] Add the `Credential` struct (**Data model** below)
+- [ ] Constructor takes `IDayzePayroll` and `IHumanRegistry`
+
+### 2. Give the credential access to `monthly`
+**To do:**
+- [ ] In `DayzePayroll`, add a one-shot, owner-only `setCredential(address)`
+- [ ] In `createStream`, also call `FHE.allow(monthly, address(credential))`
+
+### 3. `issue`
+**To do:**
+- [ ] Check: caller is the payee, stream is `Active`, expiry is in the future (**Key CoFHE snippet** below)
+- [ ] Compute `ok = FHE.gte(monthly, threshold)`. `allowThis` it. Allow it **only** to the verifier.
+- [ ] Set `payeeIsHuman` from `humanRegistry.isHuman(msg.sender)`
+- [ ] Store it. Add the id to the payee and verifier lists. Emit `CredentialIssued`.
+
+### 4. `revoke`, `isValid` and views
+**To do:**
+- [ ] `revoke`: payee only. Set `revoked`. Emit `CredentialRevoked`.
+- [ ] `isValid`: `!revoked && block.timestamp < expiresAt`. Decide whether it also checks the stream status. Write your choice in NatSpec.
+- [ ] Write `get`, `credentialsOf` and `credentialsFor`
+- [ ] Copy **Honest limits** into the NatSpec
+
+### 5. Tests
+**To do:**
+- [ ] Create `test/unit/IncomeCredentialTest.t.sol`. Write the 9 tests in **Tests** below.
+- [ ] Run the commands in **Checkpoint**
+- [ ] Run `/solidity-auditor` on `src/`. Fix real issues.
+- [ ] Commit
+
 ## Data model
 ```solidity
 /// @notice A one-bit income proof issued by a payee to a single verifier

@@ -37,6 +37,11 @@ Fhenix ships its contracts as Hardhat-style npm packages. Their docs say `npm in
 
 ### 1. Clean up the old OZ submodule and npm files
 
+**To do:**
+- [ ] Run the commands below to remove the old OZ submodule and the root npm files
+- [ ] Check that `cat .gitmodules` lists only `lib/forge-std`
+- [ ] Commit the cleanup (commit 1 at the bottom)
+
 Git has `lib/openzeppelin-contracts` staged as deleted and `.gitmodules` edited. `forge install` won't run while `.gitmodules` has uncommitted changes (`cannot safely install dependency â€¦ has existing changes`). Finish the removal and commit first:
 
 ```bash
@@ -52,6 +57,10 @@ The next step reinstalls OZ at the right version.
 
 ### 2. Install dependencies
 
+**To do:**
+- [ ] Run the `forge install` command below
+- [ ] Check that `ls lib` shows 6 folders
+
 ```bash
 forge install \
   OpenZeppelin/openzeppelin-contracts@v5.4.0 \
@@ -64,6 +73,10 @@ forge install \
 `forge-std` is already there. `ls lib` should show 6 folders.
 
 ### 3. `remappings.txt`: replace the file
+
+**To do:**
+- [ ] Replace everything in `remappings.txt` with the block below
+- [ ] Run `forge remappings` and check each path points at a folder that exists
 
 ```text
 forge-std/=lib/forge-std/src/
@@ -80,6 +93,10 @@ We keep the import **prefixes** Fhenix uses (`@fhenixprotocol/cofhe-contracts/â€
 
 ### 4. `foundry.toml`: one change
 
+**To do:**
+- [ ] Change `libs` to `["lib"]` in `foundry.toml`
+- [ ] Leave `isolate = true` and `auto_detect_remappings = false` as they are
+
 ```toml
 libs = ["lib"]          # was ["node_modules", "lib"]
 ```
@@ -90,6 +107,12 @@ The rest is already right.
 - Keep `auto_detect_remappings = false`. It stops Forge from guessing remappings from the monorepo's nested `foundry.toml` files.
 
 ### 5. Keys go in the Foundry keystore, not `.env`
+
+**To do:**
+- [ ] Import the deployer key: `cast wallet import dayze-deployer --interactive`
+- [ ] Write down its address: `cast wallet address --account dayze-deployer`
+- [ ] Create `.env` with the three non-secret values below
+- [ ] Check that `.env` is ignored: `git check-ignore .env`
 
 Never put a private key in `.env`, a script, or a shell variable. Import each signing key once into the encrypted keystore (`~/.foundry/keystores/`):
 
@@ -114,6 +137,12 @@ DEPLOYER=0x...                       # address of dayze-deployer, used as --send
 The `0xA11CE`-style constants in tests are **test-only** keys. `CofheClient` uses them to sign mock inputs in Forge. They never touch a live network. Never put a real key there.
 
 ### 6. Smoke test: `HelloFHE`
+
+**To do:**
+- [ ] Create `src/HelloFHE.sol` with the code below
+- [ ] Create `test/unit/HelloFHETest.t.sol` with the test below
+- [ ] Run the commands in **Checkpoint** and tick every box
+- [ ] Commit (commits 2 and 3 at the bottom)
 
 `src/HelloFHE.sol` is a throwaway contract that proves the pipeline works:
 

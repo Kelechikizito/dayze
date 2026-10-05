@@ -3,6 +3,45 @@
 ## Goal
 Any ERC20 or native ETH goes in. An encrypted balance comes out. Wrap and unwrap are the **only** places amounts are plaintext (architecture §4, §8).
 
+## Steps
+Do these in order. The sections after **Steps** have the code and details each to-do points to.
+
+### 1. Read the design
+**To do:**
+- [ ] Read **Decision** and **Decimals** below
+- [ ] Be able to say why payroll only moves wrappers, and why 1 ETH is `1e6` units
+
+### 2. Write `ConfidentialToken`
+**To do:**
+- [ ] Create `src/ConfidentialToken.sol` with `/sol-style-guide`
+- [ ] Inherit `FHERC20ERC20Wrapper`. Pass the underlying ERC20, name and symbol (code below).
+- [ ] Run `forge build`. If it asks for `override(...)`, copy the block from `FHERC20NativeWrapper.sol`.
+
+### 3. Write `ConfidentialNative`
+**To do:**
+- [ ] Create `src/ConfidentialNative.sol`
+- [ ] Inherit `FHERC20NativeWrapper`. Take `IWETH` in the constructor (code below).
+- [ ] Run `forge build`
+
+### 4. Build the shared test base
+**To do:**
+- [ ] Create `test/utils/DayzeTestBase.sol` as a `CofheTest`
+- [ ] In `setUp`, deploy the mocks, `ERC20_Harness` USDC (6) and ARB (18), and `WETH_Harness`
+- [ ] Deploy one `ConfidentialToken` per ERC20, plus `ConfidentialNative`
+- [ ] Create CoFHE clients for employer, alice and bob
+- [ ] Mint test USDC and ARB to the employer
+
+### 5. Write the token tests
+**To do:**
+- [ ] Create `test/unit/ConfidentialTokenTest.t.sol`. Inherit `DayzeTestBase`.
+- [ ] Write the 7 tests in **Tests** below
+- [ ] Run the command in **Checkpoint**
+
+### 6. Clean up and commit
+**To do:**
+- [ ] Delete `src/HelloFHE.sol` and `test/unit/HelloFHETest.t.sol`
+- [ ] Commit
+
 ## Decision: wrap every token, never move raw ERC20s
 If payroll paid in plain ERC20s, every withdrawal would be a public transfer. Anyone could read each salary. So payroll only moves **confidential wrappers**. `SafeERC20` runs inside the wrappers, at shield/unshield. `fhenix-confidential-contracts` has both wrappers:
 

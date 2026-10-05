@@ -5,6 +5,45 @@ Per Payer: a k-of-n approver set and an **encrypted** monthly threshold **per to
 
 Why per token? Streams can pay in any allowlisted wrapper (02). "10,000" in cUSDC is not "10,000" in cETH. Comparing across tokens needs a price oracle. That's out of scope for v0.1.
 
+## Steps
+Do these in order. The sections after **Steps** have the code and details each to-do points to.
+
+### 1. Interface
+**To do:**
+- [ ] Create `src/interfaces/IApprovalPolicy.sol` with the interface below
+
+### 2. Storage
+**To do:**
+- [ ] Create `src/ApprovalPolicy.sol` with `/sol-style-guide`
+- [ ] Add a `Policy` struct per payer: approver list, `required`, `exists`
+- [ ] Add `s_thresholds[payer][token]` (`euint64`) and `s_hasThreshold[payer][token]`
+- [ ] Add `s_approved[payer][streamId][approver]` and an approval count per stream
+- [ ] Add a one-shot, owner-only `setPayroll(address)` and an `onlyPayroll` modifier
+
+### 3. `setPolicy` and `setThreshold`
+**To do:**
+- [ ] `setPolicy`: revert if `required == 0` or `required > approvers.length`. Store it. Emit `PolicySet`.
+- [ ] `setThreshold`: store the threshold with `allowThis` and `allowSender` (**Storing the threshold** below). Emit `ThresholdSet`.
+
+### 4. `evaluate`
+**To do:**
+- [ ] Make it `onlyPayroll`
+- [ ] Receive the salary with `FHE.receiveEuint64Param`
+- [ ] Return false with no policy, true with no threshold for the token, else `FHE.gt` (snippet below)
+- [ ] `allowThis` the result and allow it to payroll
+
+### 5. Approvals and views
+**To do:**
+- [ ] `approve`: revert if the caller isn't one of the payer's approvers, or already approved
+- [ ] Mark the approval, raise the count, emit `Approved`
+- [ ] Write `approvalCount`, `required`, `hasPolicy` and `hasThreshold`
+
+### 6. Tests
+**To do:**
+- [ ] Create `test/mocks/PayrollHarness.sol`. It shares a value with the policy and calls `evaluate`.
+- [ ] Create `test/unit/ApprovalPolicyTest.t.sol`. Write the 8 tests in **Tests** below.
+- [ ] Run the command in **Checkpoint**, then commit
+
 ## Interface
 ```solidity
 /**

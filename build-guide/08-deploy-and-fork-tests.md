@@ -6,6 +6,15 @@ All contracts live on Arbitrum Sepolia with real CoFHE. Demo data seeded. Addres
 ## Steps
 
 ### 1. `script/Deploy.s.sol`
+
+**To do:**
+- [ ] Create `script/Deploy.s.sol`. Deploy and wire everything in the order below.
+- [ ] Read `DEMO_PERIOD`, `WETH` and `ATTESTER` from env
+- [ ] Write the addresses to `deployments/421614.json`
+- [ ] Add `WETH` and `ATTESTER` to `.env`
+- [ ] Dry run without `--broadcast`. Then broadcast with the command below.
+- [ ] Check every contract is verified on Arbiscan
+
 Deploy order and wiring:
 ```text
 ERC20_Harness("USDC", 6), ERC20_Harness("ARB", 18)   ← demo tokens you can mint (Fhenix test harness)
@@ -50,6 +59,13 @@ forge script script/Deploy.s.sol \
 Forge asks for the keystore password. `--sender` must match the keystore address. If not, the simulation runs as the wrong address and ownership ends up wrong. If the linked library fails to verify, verify it alone with `forge verify-contract`.
 
 ### 2. Seeding (works with the keystore)
+
+**To do:**
+- [ ] Create `frontend/scripts/encrypt.ts` (**a** below)
+- [ ] Create `script/seed.sh` (**b** below)
+- [ ] Run it. Check: 1 org, 1 policy, 1 auditor, 4 streams.
+- [ ] Or skip both and seed through the UI after checkpoint 10
+
 A Forge script can't make encrypted inputs on a live network. They need the CoFHE ZK verifier (off-chain HTTP). So split the job: **Node only encrypts, `cast` signs.** No key ever reaches Node.
 
 **a) `frontend/scripts/encrypt.ts`** (run with `npx tsx`). It reuses `frontend/`'s `@cofhe/sdk` + viem, so the root stays npm-free:
@@ -84,6 +100,12 @@ Each `cast send` asks for the password, about 10 times in total. Fine for a one-
 **`resolvePolicy` needs no special key.** It is permissionless, and the employer UI already runs `decryptForTx` and submits it (checkpoint 10). No background keeper with a key. For the seeded 12k cUSDC stream, open the employer console once and it resolves.
 
 ### 3. Fork tests: `test/forks/LiveForkTest.t.sol`
+
+**To do:**
+- [ ] Create `test/forks/LiveForkTest.t.sol`. Read addresses from `deployments/421614.json`.
+- [ ] Test plaintext state, trivial encryptions and ACL grants (list below)
+- [ ] Run it with the fork command below
+
 Goal: prove the contracts work with the **real** Task Manager, not just mocks.
 - Skip them by default locally: `forge test --no-match-path "test/forks/*"`.
 - Can test on a fork: plaintext paths, deployed state, trivial encryptions (`FHE.asEuint64(uint)`) and FHE ops not reverting, ACL grants (`FHE.isAllowed`).
@@ -94,6 +116,11 @@ forge test --match-path "test/forks/*" --fork-url $ARBITRUM_SEPOLIA_RPC_URL -vv
 ```
 
 ### 4. Export to the frontend
+
+**To do:**
+- [ ] Create `scripts/export-abis.sh` that copies ABIs and addresses (below)
+- [ ] Run it. Check that `frontend/lib/contracts/` has typed ABIs and `addresses.ts`.
+
 `scripts/export-abis.sh`:
 - Copy each `.abi` from `out/<Contract>.sol/<Contract>.json` into `frontend/lib/contracts/abis/*.ts` as `export const X = [...] as const`, so viem infers types.
 - Copy `deployments/421614.json` into `frontend/lib/contracts/addresses.ts`.

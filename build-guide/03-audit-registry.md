@@ -3,6 +3,33 @@
 ## Goal
 A Payer picks auditor addresses. Every new or updated payroll handle is `FHE.allow`-ed to the Payer's **current** auditors (architecture §6.2, §7.5).
 
+## Steps
+Do these in order. The sections after **Steps** have the code and details each to-do points to.
+
+### 1. Interface
+**To do:**
+- [ ] Create `src/interfaces/IAuditRegistry.sol` with the interface in **Design** below
+
+### 2. Registry
+**To do:**
+- [ ] Create `src/AuditRegistry.sol` with `/sol-style-guide`. Implement `IAuditRegistry`.
+- [ ] Store one OZ `EnumerableSet.AddressSet` per payer
+- [ ] Add `MAX_AUDITORS = 5`. Revert when a payer goes past it.
+- [ ] `addAuditor` and `removeAuditor` change only the caller's set and emit an event
+- [ ] Revert when adding an auditor twice or removing one that isn't there
+- [ ] Write `auditorsOf` and `isAuditor`
+
+### 3. Shared helper
+**To do:**
+- [ ] Create `src/libraries/AuditAccess.sol`
+- [ ] Add `allowAuditors(IAuditRegistry registry, address payer, euint64 h)` as an `internal` function (pattern below)
+
+### 4. Tests
+**To do:**
+- [ ] Create `test/mocks/AuditHarness.sol`. It makes a handle and calls `AuditAccess.allowAuditors`.
+- [ ] Create `test/unit/AuditRegistryTest.t.sol`. Write the 4 tests in **Tests** below.
+- [ ] Run the command in **Checkpoint**, then commit
+
 ## Design
 Keep it a plain registry. **Only the contract that owns a handle can call `FHE.allow` on it.** So `AuditRegistry` can't grant access to `DayzePayroll`'s handles. It just answers "who are the auditors?". Payroll does the allowing.
 

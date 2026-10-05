@@ -3,6 +3,63 @@
 ## Goal
 Orgs, encrypted per-token vaults, multi-token streams, lazy accrual and no-leak withdrawals. Approvals are stubbed here: every stream goes straight to `Active`. 06 wires them up. This is the core of the project. Take your time.
 
+## Steps
+Do these in order. The sections after **Steps** have the code and details each to-do points to.
+
+### 1. Types and interface
+**To do:**
+- [ ] Create `src/interfaces/IDayzePayroll.sol` with `Status`, `Org`, `Stream`, the events and the functions (**Data model** and **Interface** below)
+- [ ] Add `uint64 endTime` to `Stream` (see **Cancel**)
+
+### 2. Contract skeleton
+**To do:**
+- [ ] Create `src/DayzePayroll.sol` with `/sol-style-guide`. Inherit OZ `Ownable`.
+- [ ] Constructor takes `IApprovalPolicy`, `IAuditRegistry` and `PERIOD`
+- [ ] Add storage: orgs, streams, a next stream id, the payer and payee id lists, `s_supportedTokens`, `s_vaults`
+
+### 3. Orgs and the token allowlist
+**To do:**
+- [ ] `createOrg`: revert if the caller already has one. Store it. Emit `OrgCreated`.
+- [ ] `addToken` and `removeToken`: `onlyOwner`. Emit `TokenAdded` / `TokenRemoved`.
+
+### 4. Fund the vault
+**To do:**
+- [ ] Revert on a token that isn't allowlisted
+- [ ] Pull with `confidentialTransferFrom`. Credit the **returned** amount (**Funding the vault** below).
+- [ ] Allow the new vault handle to this contract, the payer and the auditors
+- [ ] Emit `VaultFunded` with no amount
+
+### 5. Create a stream
+**To do:**
+- [ ] Revert on a token that isn't allowlisted, or a caller with no org
+- [ ] Store the encrypted `monthly`. Allow it to this contract, payee, payer and auditors.
+- [ ] For now, set `Active` and `startTime = block.timestamp` right away (06 replaces this)
+- [ ] Push the id to the payer and payee lists. Emit `StreamCreated` and `StreamActivated`.
+
+### 6. Accrual
+**To do:**
+- [ ] Write `_accrued` in `euint128` (**Accrual** below)
+- [ ] Use `min(block.timestamp, endTime)` for cancelled streams
+
+### 7. Withdraw
+**To do:**
+- [ ] Revert if the caller isn't the payee, or the stream is not `Active` or `Cancelled`
+- [ ] Build `pay` with `FHE.select`, so an over-withdraw pays 0 (**Withdraw** below)
+- [ ] Update `withdrawn` and the vault. Re-allow both new handles.
+- [ ] Send `pay` with `confidentialTransfer`. Emit `Withdrawn`.
+
+### 8. Cancel and views
+**To do:**
+- [ ] `cancelStream`: payer only. Set `Cancelled` and `endTime`. Emit `StreamCancelled`.
+- [ ] Write `getStream`, `streamsOfPayer`, `streamsOfPayee` and `vaultOf`
+
+### 9. Tests
+**To do:**
+- [ ] Write the 12 unit tests in `test/unit/DayzePayrollTest.t.sol` (**Tests** below)
+- [ ] Write the fuzz test in `test/fuzz/DayzePayrollFuzzTest.t.sol`
+- [ ] Run them with `PERIOD = 30 days` and with `PERIOD = 600`
+- [ ] Run the checks in **Checkpoint**, then commit
+
 ## Data model
 ```solidity
 /*//////////////////////////////////////////////////////////////

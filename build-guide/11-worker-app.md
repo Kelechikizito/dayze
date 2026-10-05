@@ -6,6 +6,16 @@ The consumer side and the demo moment: a salary ticking up every second while th
 ## Sections
 
 ### 0. Onboarding (`/onboarding/employee?org=<payer>`)
+
+**To do:**
+- [ ] Create `app/onboarding/employee/page.tsx` with a `<Stepper>` of the 5 steps below
+- [ ] Read `org` from the URL and show the org name
+- [ ] World ID step: IDKit widget → `/api/world-id/attest` → `register`
+- [ ] ACP step: reuse `useEnsureACP()` (09)
+- [ ] Address step: big address, copy button, QR code
+- [ ] Wait step: poll `streamsOfPayee(me)` every 10 seconds, then go to `/worker`
+- [ ] Send users who already have a stream straight to `/worker`
+
 The employee opens the invite link from their employer (10 §5). One `<Stepper>` (09 §7):
 
 | # | Step | Done when | Skippable |
@@ -24,6 +34,13 @@ The employee opens the invite link from their employer (10 §5). One `<Stepper>`
 An employee who already has a stream skips onboarding and lands on `/worker`.
 
 ### 1. Live balance (the hero)
+
+**To do:**
+- [ ] Load `streamsOfPayee(me)`. Unseal `monthly` and `withdrawn` once per stream.
+- [ ] Read the latest block time once to fix clock skew (see **Pitfalls**)
+- [ ] Tick the balance locally with BigInt math (code below)
+- [ ] Show "Updating live. 0 transactions."
+
 - On load: `streamsOfPayee(me)` → for each stream, unseal `monthly` and `withdrawn` **once** via `decryptForView` (ACP)
 - Tick locally:
   ```ts
@@ -36,15 +53,33 @@ An employee who already has a stream skips onboarding and lands on `/worker`.
 - Unseal `withdrawn` again after each withdraw.
 
 ### 2. Withdraw
+
+**To do:**
+- [ ] Amount input (default: all available) → encrypt for `PAYROLL` → `withdraw`
+- [ ] After it confirms, unseal `withdrawn` and the token balance again
+- [ ] If nothing moved, show the "nothing moved" message
+
 - Amount input (default: all available) → encrypt for `PAYROLL` → `withdraw`
 - After confirmation, unseal your balance in the stream's token and show the change. If it's 0, explain: "Request was more than available, so nothing moved. (We don't revert, because that would leak information.)"
 
 ### 3. Cash out (unshield)
+
+**To do:**
+- [ ] Show the warning modal first
+- [ ] `unshield` → find the claim → `decryptForTx` → `claimUnshielded`
+- [ ] Show a 3-step progress bar
+
 - Big warning modal: **"Cashing out reveals this amount publicly onchain."** (architecture §7.3)
 - `wrapper.unshield(me, me, amt)` → find the claim → `decryptForTx(claimHandle).withoutACP()` → `claimUnshielded(id, value, sig)`
 - Show a three-step progress bar. Decrypt can be slow on testnet.
 
 ### 4. Income credentials
+
+**To do:**
+- [ ] Issue form with the fields below → `issue`
+- [ ] On success, show the share link, a copy button and a QR code
+- [ ] "My credentials" list with a live countdown and a Revoke button
+
 - **Issue** form: stream (sets the token), verifier address, threshold (token per month, converted to confidential units), expiry (5 min *(demo)*, 1 day, 7 days, 30 days) → `issue`
 - On success: share link `https://<app>/verify/<id>` + copy button + QR code
 - **My credentials** list: verifier, threshold, expires in (live countdown), status (Valid / Expired / Revoked), Revoke button

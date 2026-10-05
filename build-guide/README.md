@@ -2,7 +2,13 @@
 
 Step-by-step path from an empty Foundry repo to the demo in [`../architecture.md`](../architecture.md).
 
-Each checkpoint gives the **goal, interfaces, tricky CoFHE snippets, tests, and a "done when" list**. You write the code. Pass each ✅ checkpoint before moving on.
+How each checkpoint is laid out:
+- **Goal:** what you build and why
+- **Steps:** a numbered list. Each step has a **To do** checklist. Work through it top to bottom and tick each box.
+- **Reference:** interfaces, CoFHE snippets and tests. The to-dos point here, e.g. "(**Withdraw** below)".
+- **✅ Checkpoint:** a "done when" list. Pass it before moving on.
+
+You write the code.
 
 > **Versions used (checked 2026-09-28):**
 > Contracts (all `forge install` into `lib/`, no npm): `cofhe-contracts v0.2.0`, `cofhesdk` @ `8bda9b3` (foundry-plugin + mock-contracts 0.7.1), `fhenix-confidential-contracts v0.4.0`, OpenZeppelin `v5.4.0`.

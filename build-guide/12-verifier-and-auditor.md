@@ -5,6 +5,15 @@
 ### Goal
 A landlord opens a link and sees ✅ / ❌ plus metadata. Nothing else (architecture §6.1, §7.4).
 
+**To do:**
+- [ ] Create `app/verify/[id]/page.tsx`
+- [ ] Read `get(id)` and `isValid(id)` with no wallet
+- [ ] Show the metadata and the status banner (**Page** steps 2–3 below)
+- [ ] Add "Reveal result": sign in → check the address → ACP → unseal → ✅ / ❌
+- [ ] Add the footer line
+- [ ] Create `app/verify/page.tsx` that shows the signed-in address with copy and QR (**Getting the verifier's address**)
+- [ ] Recompute the banner every second from `expiresAt` (**Demo detail**)
+
 ### Page
 1. Read `credential.get(id)` and `isValid(id)` with no wallet. Metadata is plaintext.
 2. Show: issuing org (`payroll` org name), threshold in the credential's token ("≥ 3,000 USDC / month", converted with the wrapper's `rate()`), stream active since, issued at, expires at (live countdown).
@@ -23,6 +32,13 @@ Keep the page open while the credential expires. Poll `isValid` every few second
 
 ### Goal
 Auditors unseal what they were granted and export a CSV locally (architecture §7.5).
+
+**To do:**
+- [ ] Create `app/audit/page.tsx`
+- [ ] Payer address input → check `isAuditor(payer, me)`
+- [ ] Unseal each stream and vault, and show the table (**Page** below)
+- [ ] Add "Export CSV" with a browser `Blob`. No network calls.
+- [ ] Show "🔒 no access" for handles you can't read
 
 ### Page
 1. Enter or pick a payer address. Check `isAuditor(payer, me)`.

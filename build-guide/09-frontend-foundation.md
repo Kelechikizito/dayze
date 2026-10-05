@@ -6,6 +6,12 @@ The Next.js app in `frontend/` gets Privy login, the CoFHE client, ACPs, onboard
 ## Steps
 
 ### 1. Install
+
+**To do:**
+- [ ] Read `frontend/AGENTS.md` and `frontend/CLAUDE.md`
+- [ ] Run both install commands below
+- [ ] Pin exact versions in `package.json` (no `^`)
+
 ```bash
 cd frontend
 npm install wagmi viem @tanstack/react-query @cofhe/sdk@0.7.1 @cofhe/react@0.7.1
@@ -16,12 +22,24 @@ Read `frontend/AGENTS.md`/`CLAUDE.md` first. This is Next 16 / React 19. APIs ma
 **Why Privy:** workers sign up with email or Google and get an embedded wallet. No seed phrase, no extension. People who already have a wallet (MetaMask, Rabby) can still connect it. Landlords opening a credential link sign in the same way.
 
 ### 2. Privy dashboard
-1. Create an app at [dashboard.privy.io](https://dashboard.privy.io). Copy the **App ID**.
-2. Login methods: email, Google, wallet.
-3. Allowed domains: `localhost:3000` and your Vercel URL.
-4. Put the App ID in `frontend/.env.local` as `NEXT_PUBLIC_PRIVY_APP_ID`. The App ID is public. The **App Secret** is not. You don't need the secret until checkpoint 15.
+**To do:**
+- [ ] Create an app at [dashboard.privy.io](https://dashboard.privy.io). Copy the **App ID**.
+- [ ] Turn on login methods: email, Google, wallet
+- [ ] Add allowed domains: `localhost:3000` and your Vercel URL
+- [ ] Put the App ID in `frontend/.env.local` as `NEXT_PUBLIC_PRIVY_APP_ID`
+
+The App ID is public. The **App Secret** is not. You don't need the secret until checkpoint 15.
 
 ### 3. Providers (`app/providers.tsx`, `"use client"`)
+
+**To do:**
+- [ ] Create `app/providers.tsx` as a client component (code below)
+- [ ] Wrap the children in `app/layout.tsx` with `<Providers>`
+- [ ] Add `NEXT_PUBLIC_ARB_SEPOLIA_RPC` to `frontend/.env.local`
+- [ ] Add Log in / Log out buttons with `usePrivy()`
+- [ ] Reconnect the CoFHE client when the wallet changes
+- [ ] Send a little Arbitrum Sepolia ETH to your test embedded wallet
+
 Import `createConfig` and `WagmiProvider` from **`@privy-io/wagmi`**, not from `wagmi`. The order matters: Privy → React Query → wagmi.
 ```tsx
 import { PrivyProvider } from '@privy-io/react-auth';
@@ -63,6 +81,12 @@ Reconnect the CoFHE client each time the wagmi wallet changes: `cofheClient.conn
 **SSR:** `@cofhe/sdk/web` lazy-loads `tfhe` (WASM). Use CoFHE only in client components. If Next still complains, load providers with `dynamic(() => import('./providers'), { ssr: false })`.
 
 ### 4. Three helpers used everywhere (`lib/fhe.ts`)
+
+**To do:**
+- [ ] Create `lib/fhe.ts` with `encrypt`, `unseal` and `decryptForTx` helpers (code below)
+- [ ] Check the return shapes in `node_modules/@cofhe/sdk/core/`
+- [ ] Create `lib/tokens.ts`: each wrapper → underlying token, symbol and `rate()`, plus unit conversion helpers
+
 ```ts
 // encrypt for a specific contract
 const [handle, proof] = await cofhe
@@ -79,11 +103,23 @@ const res = await cofhe.decryptForTx(handle).withoutACP().execute();
 Check the return shapes in `node_modules/@cofhe/sdk/core/`. Fix these helpers once.
 
 ### 5. ACP onboarding
+
+**To do:**
+- [ ] Write a `useEnsureACP()` hook that creates a self ACP the first time it's needed
+- [ ] Show the one-line explanation before the signature
+- [ ] Test it with an embedded wallet
+
 The first time a user unseals, create a self ACP (`acps.getOrCreateSelfACP`, or the `useCofheActiveACP` hook). It's an EIP-712 signature, not a tx. Show one line: "Sign once so the network knows it's you. Nothing is sent onchain."
 
 Privy embedded wallets support EIP-712 (`eth_signTypedData_v4`), so ACPs work the same as with MetaMask. Test this early. If Privy shows its own confirm modal, that's fine.
 
 ### 6. Routes
+
+**To do:**
+- [ ] Create each page file below with a placeholder
+- [ ] Landing page: two buttons, "I'm an employer" and "I'm an employee"
+- [ ] Add the redirect rule after login (below)
+
 ```
 app/page.tsx                          landing: "I'm an employer" / "I'm an employee"
 app/onboarding/employer/page.tsx      checkpoint 10, first visit only
@@ -100,9 +136,20 @@ Use two routes for onboarding, not a query string like `?employee:employer`. Eac
 **Redirect rule:** after login, if the user has no org and no streams, and they haven't finished onboarding, send them to the right onboarding route. Keep a "finished" flag in `localStorage`. It's only a UX hint, so losing it is fine: the onboarding pages read the chain and skip the steps that are already done.
 
 ### 7. Shared `<Stepper>` component
+
+**To do:**
+- [ ] Create `components/Stepper.tsx`
+- [ ] Each step takes a title, a help line, a status and an action
+- [ ] Get each status from a chain read, not from clicks
+
 Both onboarding flows use one stepper. Each step has: a title, one line of help, a status (`todo | active | done | skipped`), and an action. A step is **done** when the chain says so, not when the user clicks. For example, "Create org" is done when `orgs(me).exists` is true. Then a refresh never loses progress.
 
 ### 8. Async UX primitive
+
+**To do:**
+- [ ] Create `components/TxStatus.tsx` with the states below
+- [ ] Pick a visual style before you build pages
+
 Build one `<TxStatus>` component with states: `encrypting → signing → confirming → fhe-processing → done | error`. Every FHE action in 10–12 uses it. Architecture §6.3 needs visible "processing" states.
 
 Pick a visual style with `/frontend-design` or `/ui-ux-pro-max` before building pages.

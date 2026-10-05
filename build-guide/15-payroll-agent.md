@@ -30,11 +30,24 @@ Privy checks transactions **in plaintext**. Dayze amounts are **ciphertext**. So
 ## Steps
 
 ### 1. Authorization key (one time)
+
+**To do:**
+- [ ] Make a P-256 key pair locally
+- [ ] Register the public key as a 1-of-1 key quorum in the Privy dashboard. Save the id.
+- [ ] Add `PRIVY_APP_SECRET`, `PRIVY_AUTH_PRIVATE_KEY` and `PRIVY_QUORUM_ID` to Vercel, server only
+
 - Make a P-256 key pair locally (`openssl ecparam -name prime256v1 ...`, see Privy's [signers quickstart](https://docs.privy.io/wallets/using-wallets/signers/quickstart)).
 - Register the public key as a 1-of-1 key quorum in the Privy dashboard. Save the quorum id.
 - Server-only env vars on Vercel: `PRIVY_APP_SECRET`, `PRIVY_AUTH_PRIVATE_KEY`. Never `NEXT_PUBLIC_*`, never in the repo.
 
 ### 2. Policy (built from the form)
+
+**To do:**
+- [ ] Check the input names of `shield` and `fundVault` in the ABIs
+- [ ] Create `lib/agent/policy.ts` that builds the policy below from the form values
+- [ ] Create one aggregation per employer for the 30-day cap
+- [ ] Create the policy from a server route with the Privy Node SDK
+
 One policy per employer, created from the server with the Privy Node SDK. Every rule also checks the expiry.
 ```ts
 {
@@ -60,6 +73,15 @@ One policy per employer, created from the server with the Privy Node SDK. Every 
 - Anything not allowed is denied by default. Don't add a catch-all rule.
 
 ### 3. Grant access (`/employer/agent`)
+
+**To do:**
+- [ ] Create `app/employer/agent/page.tsx` with the form
+- [ ] Show the plain-words summary before Grant
+- [ ] On Grant: create the policy on the server, then call `addSigners` on the client
+- [ ] Add a "Revoke agent" button
+- [ ] Hide the page for external wallets
+- [ ] Optional: add the `draft_agent_policy` MCP tool
+
 A form with: token, amount per top-up, max per 30 days, schedule (daily / weekly), access ends on.
 - Submit → server creates the policy → client calls `addSigners({ address, signers: [{ signerId: QUORUM_ID, policyIds: [policyId] }] })` from `useSigners()`.
 - Show the rules in plain words before the user confirms: "The agent can move up to 5,000 USDC per week into your payroll vault until 1 Dec. It can't see salaries or pay anyone."
@@ -69,6 +91,13 @@ A form with: token, amount per top-up, max per 30 days, schedule (daily / weekly
 **Optional: "Draft with AI".** Expose one MCP tool, `draft_agent_policy`, that returns form values from a plain-English request ("top up 5k a week until December"). It only fills the form. A human still reviews and clicks Grant. The agent never sets its own limits.
 
 ### 4. The top-up job (`app/api/agent/topup/route.ts`)
+
+**To do:**
+- [ ] Create `app/api/agent/topup/route.ts` that sends the 4 txs below
+- [ ] Add a Vercel cron for it in `vercel.json`
+- [ ] Reject calls without the right `CRON_SECRET` header
+- [ ] Log tx hashes only
+
 Run it from a Vercel cron. For each employer with an active grant:
 1. `approve(CUSDC, amount)` on USDC
 2. `shield(employer, amount)` on cUSDC
