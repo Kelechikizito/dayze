@@ -205,6 +205,7 @@ contract ApprovalPolicy is IApprovalPolicy, Ownable {
     /// @param proof Proof that verifies `threshold`
     function _setThreshold(address payer, address token, externalEuint64 threshold, bytes calldata proof) internal {
         if (token == address(0)) revert ApprovalPolicy__ZeroAddress();
+
         euint64 value = FHE.asEuint64(threshold, proof);
         FHE.allowThis(value);
         FHE.allow(value, payer); // the payer can view their own threshold
