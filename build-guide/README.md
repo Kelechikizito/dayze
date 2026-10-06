@@ -56,8 +56,8 @@ You write the code.
 
 - [x] 01 Setup
 - [x] 02 Confidential tokens
-- [ ] 03 AuditRegistry
-- [ ] 04 ApprovalPolicy
+- [x] 03 AuditRegistry
+- [x] 04 ApprovalPolicy
 - [ ] 05 DayzePayroll core
 - [ ] 06 Payroll approvals
 - [ ] 07a HumanRegistry (World ID)
