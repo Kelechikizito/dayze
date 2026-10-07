@@ -61,7 +61,7 @@ You write the code.
 - [x] 05 DayzePayroll core
 - [x] 06 Payroll approvals
 - [ ] 07a HumanRegistry (World ID)
-- [ ] 07 IncomeCredential
+- [x] 07 IncomeCredential
 - [ ] 08 Deploy + fork tests
 - [ ] 09 Frontend foundation
 - [ ] 10 Employer console
