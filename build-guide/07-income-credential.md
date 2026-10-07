@@ -8,34 +8,35 @@ Do these in order. The sections after **Steps** have the code and details each t
 
 ### 1. Contract skeleton
 **To do:**
+- [ ] Create `src/interfaces/IIncomeCredential.sol` with the `Credential` struct, events and functions (**Data model** and **Interface** below)
 - [ ] Create `src/IncomeCredential.sol` with `/sol-style-guide`
-- [ ] Add the `Credential` struct (**Data model** below)
-- [ ] Constructor takes `IDayzePayroll` and `IHumanRegistry`
+- [ ] Constructor takes `IDayzePayroll` and `IHumanRegistry`. Revert on a zero address.
 
 ### 2. Give the credential access to `monthly`
 **To do:**
-- [ ] In `DayzePayroll`, add a one-shot, owner-only `setCredential(address)`
-- [ ] In `createStream`, also call `FHE.allow(monthly, address(credential))`
+- [ ] In `DayzePayroll`, add a one-shot, owner-only `setCredential(address)`. Emit `CredentialSet`. Add a `credential()` view.
+- [ ] In `createStream`, also call `FHE.allow(monthly, s_credential)` once it's set
+- [ ] Note for 08: call `setCredential` right after deploy. Streams created before it can't get credentials.
 
 ### 3. `issue`
 **To do:**
-- [ ] Check: caller is the payee, stream is `Active`, expiry is in the future (**Key CoFHE snippet** below)
+- [ ] Check: verifier isn't zero, expiry is in the future, caller is the payee, stream is `Active` (**Key CoFHE snippet** below)
 - [ ] Compute `ok = FHE.gte(monthly, threshold)`. `allowThis` it. Allow it **only** to the verifier.
 - [ ] Set `payeeIsHuman` from `humanRegistry.isHuman(msg.sender)`
 - [ ] Store it. Add the id to the payee and verifier lists. Emit `CredentialIssued`.
 
 ### 4. `revoke`, `isValid` and views
 **To do:**
-- [ ] `revoke`: payee only. Set `revoked`. Emit `CredentialRevoked`.
-- [ ] `isValid`: `!revoked && block.timestamp < expiresAt`. Decide whether it also checks the stream status. Write your choice in NatSpec.
+- [ ] `revoke`: payee only, once. Set `revoked`. Emit `CredentialRevoked`.
+- [ ] `isValid`: `!revoked && block.timestamp < expiresAt && stream is Active`. Write the choice in NatSpec (**Validity** below).
 - [ ] Write `get`, `credentialsOf` and `credentialsFor`
 - [ ] Copy **Honest limits** into the NatSpec
 
 ### 5. Tests
 **To do:**
-- [ ] Create `test/unit/IncomeCredentialTest.t.sol`. Write the 9 tests in **Tests** below.
+- [ ] Create `test/unit/IncomeCredentialTest.t.sol`. Extend `PayrollTestBase` with `PERIOD = 600`. Write the tests in **Tests** below.
 - [ ] Run the commands in **Checkpoint**
-- [ ] Run `/solidity-auditor` on `src/`. Fix real issues.
+- [ ] Optional: run `/solidity-auditor` on `src/`. It's thorough but uses a lot of tokens. A manual pass over the checklist in **Checkpoint** is enough for v0.1.
 - [ ] Commit
 
 ## Data model
@@ -46,6 +47,7 @@ struct Credential {
     address payer;
     address verifier;
     address token; // the stream's confidential wrapper; the threshold is in its units
+    uint256 streamId; // isValid reads the stream's status
     uint64 threshold; // plaintext, 6-decimal units: the verifier asked for it, so it's not secret
     uint64 issuedAt;
     uint64 expiresAt;
@@ -56,7 +58,7 @@ struct Credential {
 }
 ```
 The constructor takes `IHumanRegistry` next to `payroll`. In `issue`, set `payeeIsHuman = humanRegistry.isHuman(msg.sender)`. Store it at issue time, so the verifier sees what was true when the credential was made.
-For the verifier page, also expose: org name (from payroll), `streamActiveSince`, and maybe "months funded". Architecture §8 uses these to fight fake employers. Months funded needs vault ÷ monthly, which is encrypted. So either **skip it in v0.1**, or compute another encrypted bit (`vaultOf(payer, token) >= monthly * 3`) and allow it to the verifier too.
+For the verifier page, also expose: org name (from payroll), `streamActiveSince`, and maybe "months funded". Architecture §8 uses these to fight fake employers. Months funded needs vault ÷ monthly, which is encrypted. So either **skip it in v0.1** (we did), or compute another encrypted bit (`vaultOf(payer, token) >= monthly * 3`) and allow it to the verifier too.
 
 A credential covers **one stream in one token**. "Earns ≥ 3,000 cUSDC" and "earns ≥ 1 cETH" are separate credentials. "≥ $X across all streams" needs prices. Out of scope for v0.1.
 
@@ -82,9 +84,9 @@ function revoke(uint256 id) external;
                      VIEW & PURE FUNCTIONS
 //////////////////////////////////////////////////////////////*/
 
-/// @notice Checks whether a credential is unrevoked and unexpired
+/// @notice Checks whether a credential is unrevoked, unexpired, and its stream is still Active
 /// @param id The credential to check
-/// @return True if `!revoked && now < expiresAt`
+/// @return True if the credential can still be relied on
 function isValid(uint256 id) external view returns (bool);
 
 /// @notice Returns a credential by id
@@ -132,6 +134,11 @@ Why not `allowSender`? The payee already knows their salary, so the bit tells th
 
 05 stores `monthly` directly. So a worker earning exactly 3,000 cUSDC passes a 3,000 check. No per-second rounding. `IncomeCredential` doesn't need `PERIOD`.
 
+## Validity
+`isValid` returns false once the stream is cancelled. The claim is "earns ≥ X", and that stops being true when the stream ends. A salary change while the stream stays `Active` doesn't affect it. The result is as of issuance.
+
+Not checking stream status is also defensible ("true as of issuance"). Whichever you pick, write it in the NatSpec and test it.
+
 ## Honest limits (put these in NatSpec)
 - Expiry ends **validity**. It can't make a verifier forget a bit they already decrypted (§8).
 - The credential is "as of issuance". A later salary cut doesn't change it. Short expiries keep it honest.
@@ -144,9 +151,14 @@ Why not `allowSender`? The payee already knows their salary, so the bit tells th
 4. Non-payee issue reverts. Issuing on a `Pending`/`Cancelled` stream reverts.
 5. `isValid` true before expiry. `vm.warp(expiresAt)` → false.
 6. Revoke → `isValid` false. Non-payee revoke reverts.
-7. Stream cancelled after issuance: `isValid` stays true (as of issuance). You may also check stream status in `isValid`. Both choices are fine. Just document it.
+7. Stream cancelled after issuance → `isValid` false (see **Validity**)
 8. Demo timing: with `PERIOD = 600`, issue with a 2-minute expiry and warp past it
 9. Payee registered in `HumanRegistry` → `payeeIsHuman == true`. Unregistered payee → `false`, and `issue` still works.
+10. `setCredential` is owner-only and one-shot. A new stream's `monthly` is allowed to the credential.
+
+Extras worth having: `issue` stores the right details and emits the event; an unknown id is not valid; zero verifier and bad expiry revert; revoking twice reverts.
+
+Setup: deploy `HumanRegistry` with a test attester key, deploy `IncomeCredential`, call `payroll.setCredential`, **then** create streams. To register alice as human, sign an attestation the same way as `HumanRegistryTest`.
 
 ## ✅ Checkpoint
 ```bash
@@ -155,7 +167,9 @@ forge coverage --report summary
 ```
 - [ ] Full suite passes
 - [ ] Coverage ≥ 80% lines on `src/` (FHE-heavy code may undercount. Check the misses by eye.)
-- [ ] Run `/solidity-auditor` on `src/`. Fix real issues before deploy.
+- [ ] Manual check: the result bit is allowed only to `this` and the verifier, never `allowPublic`, never emitted
+- [ ] Manual check: `issue` only calls contracts you deploy (payroll, `HumanRegistry`, FHE), so the `reentrancy-events` lint is not exploitable
+- [ ] Optional: `/solidity-auditor` on `src/`
 
 ## Commit
 `feat: add IncomeCredential — per-verifier, expiring, one-bit income proofs`
