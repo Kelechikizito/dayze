@@ -74,6 +74,9 @@ contract DayzePayroll is IDayzePayroll, Ownable {
     /// @notice Thrown when activating a stream that has fewer approvals than the policy requires
     error DayzePayroll__NotEnoughApprovals();
 
+    /// @notice Thrown when the credential contract is set a second time
+    error DayzePayroll__CredentialAlreadySet();
+
     /*//////////////////////////////////////////////////////////////
                             STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
@@ -107,6 +110,9 @@ contract DayzePayroll is IDayzePayroll, Ownable {
 
     /// @notice Stream ids per payee
     mapping(address payee => uint256[] ids) internal s_payeeStreams;
+
+    /// @notice IncomeCredential, which may compute on every stream's `monthly`; set once by the owner
+    address internal s_credential;
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -152,6 +158,14 @@ contract DayzePayroll is IDayzePayroll, Ownable {
     }
 
     /// @inheritdoc IDayzePayroll
+    function setCredential(address credentialAddress) external onlyOwner {
+        if (credentialAddress == address(0)) revert DayzePayroll__ZeroAddress();
+        if (s_credential != address(0)) revert DayzePayroll__CredentialAlreadySet();
+        s_credential = credentialAddress;
+        emit CredentialSet(credentialAddress);
+    }
+
+    /// @inheritdoc IDayzePayroll
     /// @dev Credits the amount the token actually moved, so a short payer is credited 0
     function fundVault(IFHERC20 token, externalEuint64 amount, bytes calldata proof) external {
         if (!s_supportedTokens[token]) revert DayzePayroll__UnsupportedToken();
@@ -185,6 +199,8 @@ contract DayzePayroll is IDayzePayroll, Ownable {
         FHE.allow(monthlyAmt, payee);
         FHE.allow(monthlyAmt, msg.sender);
         I_AUDIT_REGISTRY.allowAuditors(msg.sender, monthlyAmt);
+        // Streams created before `setCredential` can't get credentials; deploy sets it right away
+        if (s_credential != address(0)) FHE.allow(monthlyAmt, s_credential);
 
         euint64 withdrawn = FHE.asEuint64(0);
         FHE.allowThis(withdrawn);
@@ -323,6 +339,11 @@ contract DayzePayroll is IDayzePayroll, Ownable {
     /*//////////////////////////////////////////////////////////////
                       EXTERNAL VIEW/PURE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc IDayzePayroll
+    function credential() external view returns (address) {
+        return s_credential;
+    }
 
     /// @inheritdoc IDayzePayroll
     function orgOf(address payer) external view returns (Org memory) {

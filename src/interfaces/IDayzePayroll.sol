@@ -98,6 +98,10 @@ interface IDayzePayroll {
     /// @param id The stream id
     event StreamCancelled(uint256 indexed id);
 
+    /// @notice Emitted once, when the owner sets the credential contract
+    /// @param credential The IncomeCredential contract
+    event CredentialSet(address indexed credential);
+
     /*//////////////////////////////////////////////////////////////
                            EXTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -113,6 +117,11 @@ interface IDayzePayroll {
     /// @notice Removes a wrapper from the allowlist; existing streams keep withdrawing. Owner only.
     /// @param token The wrapper to remove
     function removeToken(IFHERC20 token) external;
+
+    /// @notice Sets the IncomeCredential contract, which gets access to every new stream's `monthly`.
+    ///         Owner only, and only once.
+    /// @param credential The IncomeCredential contract
+    function setCredential(address credential) external;
 
     /// @notice Pulls an encrypted amount of `token` from the caller into their vault for that token
     /// @dev Caller must first call `token.setOperator(payroll, until)`
@@ -162,6 +171,10 @@ interface IDayzePayroll {
     /// @param payer The payer to look up
     /// @return The org; `exists` is false if none
     function orgOf(address payer) external view returns (Org memory);
+
+    /// @notice Returns the IncomeCredential contract
+    /// @return The credential address; zero until set
+    function credential() external view returns (address);
 
     /// @notice Returns a stream by id
     /// @param id The stream to look up
