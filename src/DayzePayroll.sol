@@ -22,7 +22,8 @@ import {AuditAccess} from "src/libraries/AuditAccess.sol";
  * @notice Encrypted salary streams paid from per-payer, per-token confidential vaults.
  * @dev Accrual is lazy: `monthly * elapsed / PERIOD`, computed in euint128 on each withdraw.
  *      Over-withdrawals and underfunded vaults pay 0 instead of reverting, so nothing leaks.
- *      Approvals are stubbed here: every stream goes straight to `Active`. Checkpoint 06 wires them up.
+ *      New streams wait in `AwaitingPolicy` until anyone posts the decrypted `needsApproval` bit.
+ *      That bit is the only value ever made public: "this salary is above or below a hidden threshold".
  */
 contract DayzePayroll is IDayzePayroll, Ownable {
     using AuditAccess for IAuditRegistry;
@@ -58,14 +59,26 @@ contract DayzePayroll is IDayzePayroll, Ownable {
     /// @notice Thrown when withdrawing from a stream that is not Active or Cancelled
     error DayzePayroll__NotWithdrawable();
 
-    /// @notice Thrown when cancelling a stream that is not Active
-    error DayzePayroll__NotActive();
+    /// @notice Thrown when cancelling a stream that is already cancelled or doesn't exist
+    error DayzePayroll__NotCancellable();
+
+    /// @notice Thrown when resolving a stream that is not `AwaitingPolicy`
+    error DayzePayroll__AlreadyResolved();
+
+    /// @notice Thrown when the decrypt signature doesn't match the stream's handle and result
+    error DayzePayroll__BadDecryptProof();
+
+    /// @notice Thrown when activating a stream that is not `Pending`
+    error DayzePayroll__NotPending();
+
+    /// @notice Thrown when activating a stream that has fewer approvals than the policy requires
+    error DayzePayroll__NotEnoughApprovals();
 
     /*//////////////////////////////////////////////////////////////
                             STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Policy that decides which streams need approval (wired up in 06)
+    /// @notice Policy that decides which streams need approval
     IApprovalPolicy public immutable I_APPROVAL_POLICY;
 
     /// @notice Registry of each payer's auditors
@@ -190,7 +203,41 @@ contract DayzePayroll is IDayzePayroll, Ownable {
         s_payeeStreams[payee].push(id);
         emit StreamCreated(id, msg.sender, payee, token, euint64.unwrap(monthlyAmt));
 
-        // 06 replaces this with a policy check
+        ebool needsApproval = I_APPROVAL_POLICY.evaluate(
+            msg.sender, address(token), FHE.shareEuint64(monthlyAmt, address(I_APPROVAL_POLICY))
+        );
+        FHE.allowThis(needsApproval);
+        FHE.allowPublic(needsApproval); // anyone may decrypt this ONE bit
+        s.needsApproval = needsApproval;
+        s.status = Status.AwaitingPolicy;
+        emit PolicyCheckRequested(id, ebool.unwrap(needsApproval));
+    }
+
+    /// @inheritdoc IDayzePayroll
+    /// @dev Permissionless: the decrypt signature proves the result.
+    ///      The status check stops replays; checking against THIS stream's handle stops cross-stream reuse.
+    function resolvePolicy(uint256 id, bool needsApproval, bytes calldata sig) external {
+        Stream storage s = s_streams[id];
+        if (s.status != Status.AwaitingPolicy) revert DayzePayroll__AlreadyResolved();
+        if (!FHE.verifyDecryptResultSafe(s.needsApproval, needsApproval, sig)) {
+            revert DayzePayroll__BadDecryptProof();
+        }
+
+        if (needsApproval) {
+            s.status = Status.Pending;
+            emit StreamPending(id);
+        } else {
+            _activate(s, id);
+        }
+    }
+
+    /// @inheritdoc IDayzePayroll
+    function activateApproved(uint256 id) external {
+        Stream storage s = s_streams[id];
+        if (s.status != Status.Pending) revert DayzePayroll__NotPending();
+        if (I_APPROVAL_POLICY.approvalCount(s.payer, id) < I_APPROVAL_POLICY.required(s.payer)) {
+            revert DayzePayroll__NotEnoughApprovals();
+        }
         _activate(s, id);
     }
 
@@ -236,11 +283,12 @@ contract DayzePayroll is IDayzePayroll, Ownable {
     function cancelStream(uint256 id) external {
         Stream storage s = s_streams[id];
         if (msg.sender != s.payer) revert DayzePayroll__NotPayer();
-        if (s.status != Status.Active) revert DayzePayroll__NotActive();
+        if (s.status == Status.Cancelled) revert DayzePayroll__NotCancellable();
 
-        s.status = Status.Cancelled;
+        // A stream that never went Active has startTime 0; end there too so it accrues nothing
         // forge-lint: disable-next-line(unsafe-typecast)
-        s.endTime = uint64(block.timestamp);
+        s.endTime = s.status == Status.Active ? uint64(block.timestamp) : s.startTime;
+        s.status = Status.Cancelled;
         emit StreamCancelled(id);
     }
 

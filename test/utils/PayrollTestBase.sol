@@ -4,7 +4,7 @@ pragma solidity 0.8.25;
 /*//////////////////////////////////////////////////////////////
                             IMPORTS
 //////////////////////////////////////////////////////////////*/
-import {euint64, externalEuint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import {ebool, euint64, externalEuint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import {IFHERC20} from "fhenix-confidential-contracts/interfaces/IFHERC20.sol";
 import {CofheClient} from "@cofhe/foundry-plugin/CofheClient.sol";
 import {ApprovalPolicy} from "src/ApprovalPolicy.sol";
@@ -56,6 +56,7 @@ abstract contract PayrollTestBase is DayzeTestBase {
         policy = new ApprovalPolicy();
         registry = new AuditRegistry();
         payroll = new DayzePayroll(address(policy), address(registry), _period());
+        policy.setPayroll(address(payroll));
         vm.label(address(policy), "ApprovalPolicy");
         vm.label(address(registry), "AuditRegistry");
         vm.label(address(payroll), "DayzePayroll");
@@ -111,7 +112,7 @@ abstract contract PayrollTestBase is DayzeTestBase {
         ceth.shieldNative{value: value}(employer);
     }
 
-    /// @notice Creates a stream from the employer to alice
+    /// @notice Creates a stream from the employer to alice; it waits in `AwaitingPolicy`
     /// @param token The wrapper to pay in
     /// @param monthly Monthly salary
     /// @return id The new stream id
@@ -119,6 +120,35 @@ abstract contract PayrollTestBase is DayzeTestBase {
         (externalEuint64 h, bytes memory p) = _encrypt(employerClient, monthly);
         vm.prank(employer);
         id = payroll.createStream(alice, token, h, p);
+    }
+
+    /// @notice Decrypts a stream's public `needsApproval` bit, as any off-chain caller would
+    /// @param id The stream
+    /// @return needsApproval The decrypted bit
+    /// @return sig Decrypt signature over `(handle, needsApproval)`
+    function _decryptPolicyBit(uint256 id) internal view returns (bool needsApproval, bytes memory sig) {
+        ebool bit = payroll.getStream(id).needsApproval;
+        uint256 value;
+        (, value, sig) = bobClient.decryptForTx_withoutACP(ebool.unwrap(bit));
+        needsApproval = value == 1;
+    }
+
+    /// @notice Decrypts the policy bit and posts it with `resolvePolicy`
+    /// @param id The stream
+    /// @return needsApproval The decrypted bit
+    function _resolve(uint256 id) internal returns (bool needsApproval) {
+        bytes memory sig;
+        (needsApproval, sig) = _decryptPolicyBit(id);
+        payroll.resolvePolicy(id, needsApproval, sig);
+    }
+
+    /// @notice Creates a stream and resolves the policy. With no policy set, the stream goes `Active`.
+    /// @param token The wrapper to pay in
+    /// @param monthly Monthly salary
+    /// @return id The new stream id
+    function _createActiveStream(IFHERC20 token, uint64 monthly) internal returns (uint256 id) {
+        id = _createStream(token, monthly);
+        _resolve(id);
     }
 
     /// @notice Withdraws `amount` from stream `id` as alice

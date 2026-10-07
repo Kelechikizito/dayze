@@ -75,6 +75,15 @@ interface IDayzePayroll {
         uint256 indexed id, address indexed payer, address indexed payee, IFHERC20 token, bytes32 monthlyHandle
     );
 
+    /// @notice Emitted when a stream asks the policy whether it needs approval
+    /// @param id The stream id
+    /// @param handle Handle to the encrypted `needsApproval` bit; publicly decryptable
+    event PolicyCheckRequested(uint256 indexed id, bytes32 handle);
+
+    /// @notice Emitted when a stream needs approvals before it can start
+    /// @param id The stream id
+    event StreamPending(uint256 indexed id);
+
     /// @notice Emitted when a stream starts accruing
     /// @param id The stream id
     /// @param startTime When accrual starts
@@ -113,6 +122,7 @@ interface IDayzePayroll {
     function fundVault(IFHERC20 token, externalEuint64 amount, bytes calldata proof) external;
 
     /// @notice Starts an encrypted salary stream from the caller to `payee`, paid in `token`
+    /// @dev The stream waits in `AwaitingPolicy` until `resolvePolicy` is called
     /// @param payee The worker being paid
     /// @param token An allowlisted confidential wrapper
     /// @param monthly Encrypted monthly salary, in the token's 6-decimal units
@@ -122,13 +132,25 @@ interface IDayzePayroll {
         external
         returns (uint256 id);
 
+    /// @notice Applies the decrypted `needsApproval` bit to a stream: Pending if true, Active if false
+    /// @dev Anyone can call it; the signature proves the result
+    /// @param id The stream to resolve
+    /// @param needsApproval The decrypted bit
+    /// @param sig Decrypt signature over `(handle, needsApproval)`
+    function resolvePolicy(uint256 id, bool needsApproval, bytes calldata sig) external;
+
+    /// @notice Activates a pending stream once it has enough approvals on the policy
+    /// @dev Anyone can call it
+    /// @param id The stream to activate
+    function activateApproved(uint256 id) external;
+
     /// @notice Withdraws up to the accrued, unwithdrawn amount; pays 0 instead of reverting on over-withdrawal
     /// @param id The stream to withdraw from
     /// @param amount Encrypted amount requested
     /// @param proof Proof that verifies `amount`
     function withdraw(uint256 id, externalEuint64 amount, bytes calldata proof) external;
 
-    /// @notice Cancels a stream and freezes accrual. Payer only.
+    /// @notice Cancels a stream at any stage and freezes accrual. Payer only.
     /// @param id The stream to cancel
     function cancelStream(uint256 id) external;
 

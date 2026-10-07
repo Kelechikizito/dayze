@@ -29,7 +29,7 @@ abstract contract DayzePayrollFuzzTest is PayrollTestBase {
         funded = uint64(bound(funded, 0, EMPLOYER_USDC));
 
         _fund(tUsdc, funded);
-        uint256 id = _createStream(tUsdc, monthly);
+        uint256 id = _createActiveStream(tUsdc, monthly);
         vm.warp(block.timestamp + dt);
         _withdraw(id, req);
 

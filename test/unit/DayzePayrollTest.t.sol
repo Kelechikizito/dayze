@@ -115,7 +115,7 @@ abstract contract DayzePayrollTest is PayrollTestBase {
     /// @notice 2c. Removing a token blocks new streams, but existing streams still withdraw
     function test_removeToken_existingStreamsStillWithdraw() public {
         _fund(tUsdc, EMPLOYER_USDC);
-        uint256 id = _createStream(tUsdc, MONTHLY);
+        uint256 id = _createActiveStream(tUsdc, MONTHLY);
         payroll.removeToken(tUsdc);
 
         vm.warp(block.timestamp + _day());
@@ -150,9 +150,9 @@ abstract contract DayzePayrollTest is PayrollTestBase {
                                 STREAMS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice 4. `createStream` stores the encrypted monthly salary and starts the stream
+    /// @notice 4. `createStream` stores the encrypted monthly salary; with no policy it resolves to Active
     function test_createStream() public {
-        uint256 id = _createStream(tUsdc, MONTHLY);
+        uint256 id = _createActiveStream(tUsdc, MONTHLY);
 
         IDayzePayroll.Stream memory s = payroll.getStream(id);
         expectPlaintext(s.monthly, MONTHLY);
@@ -171,7 +171,7 @@ abstract contract DayzePayrollTest is PayrollTestBase {
     /// @notice 5. Withdrawing exactly the accrued amount pays it out
     function test_withdraw_accrued() public {
         _fund(tUsdc, EMPLOYER_USDC);
-        uint256 id = _createStream(tUsdc, MONTHLY);
+        uint256 id = _createActiveStream(tUsdc, MONTHLY);
 
         vm.warp(block.timestamp + _day());
         _withdraw(id, DAILY);
@@ -185,7 +185,7 @@ abstract contract DayzePayrollTest is PayrollTestBase {
     function test_withdraw_lowUnitAsset() public {
         _shieldEth(1e6);
         _fund(tEth, 1e6);
-        uint256 id = _createStream(tEth, 1e6);
+        uint256 id = _createActiveStream(tEth, 1e6);
 
         vm.warp(block.timestamp + _period() / 2);
         _withdraw(id, 5e5 + 1); // one unit more than accrued
@@ -198,7 +198,7 @@ abstract contract DayzePayrollTest is PayrollTestBase {
     /// @notice 7. Vaults are per token: a cETH stream can't spend the cUSDC vault
     function test_withdraw_vaultsArePerToken() public {
         _fund(tUsdc, EMPLOYER_USDC);
-        uint256 id = _createStream(tEth, 1e6);
+        uint256 id = _createActiveStream(tEth, 1e6);
 
         vm.warp(block.timestamp + _period() / 2);
         _withdraw(id, 5e5);
@@ -212,7 +212,7 @@ abstract contract DayzePayrollTest is PayrollTestBase {
     /// @notice 8. Asking for more than accrued pays 0 and doesn't revert
     function test_withdraw_overWithdrawPaysZero() public {
         _fund(tUsdc, EMPLOYER_USDC);
-        uint256 id = _createStream(tUsdc, MONTHLY);
+        uint256 id = _createActiveStream(tUsdc, MONTHLY);
 
         vm.warp(block.timestamp + _day());
         _withdraw(id, DAILY + 1);
@@ -225,7 +225,7 @@ abstract contract DayzePayrollTest is PayrollTestBase {
     /// @notice 9. Underfunded vault: fund 100, accrue 200, ask 150 → pays 0
     function test_withdraw_underfundedVaultPaysZero() public {
         _fund(tUsdc, 100e6);
-        uint256 id = _createStream(tUsdc, 2 * MONTHLY);
+        uint256 id = _createActiveStream(tUsdc, 2 * MONTHLY);
 
         vm.warp(block.timestamp + _day()); // accrued 200
         _withdraw(id, 150e6);
@@ -239,7 +239,7 @@ abstract contract DayzePayrollTest is PayrollTestBase {
 
     /// @notice 10. Only the payee can withdraw
     function test_withdraw_revertsForNonPayee() public {
-        uint256 id = _createStream(tUsdc, MONTHLY);
+        uint256 id = _createActiveStream(tUsdc, MONTHLY);
         (externalEuint64 h, bytes memory p) = _encrypt(bobClient, 1);
 
         vm.prank(bob);
@@ -263,7 +263,7 @@ abstract contract DayzePayrollTest is PayrollTestBase {
     /// @notice 11. Cancel freezes accrual; what accrued before stays withdrawable
     function test_cancel_freezesAccrual() public {
         _fund(tUsdc, EMPLOYER_USDC);
-        uint256 id = _createStream(tUsdc, MONTHLY);
+        uint256 id = _createActiveStream(tUsdc, MONTHLY);
 
         vm.warp(block.timestamp + _day());
         vm.expectEmit(true, false, false, false, address(payroll));
@@ -283,9 +283,9 @@ abstract contract DayzePayrollTest is PayrollTestBase {
         assertEq(_aliceBalance(tUsdc), DAILY);
     }
 
-    /// @notice 11b. Only the payer can cancel, and only an Active stream
+    /// @notice 11b. Only the payer can cancel, and only once
     function test_cancel_reverts() public {
-        uint256 id = _createStream(tUsdc, MONTHLY);
+        uint256 id = _createActiveStream(tUsdc, MONTHLY);
 
         vm.prank(bob);
         vm.expectRevert(DayzePayroll.DayzePayroll__NotPayer.selector);
@@ -295,7 +295,7 @@ abstract contract DayzePayrollTest is PayrollTestBase {
         payroll.cancelStream(id);
 
         vm.prank(employer);
-        vm.expectRevert(DayzePayroll.DayzePayroll__NotActive.selector);
+        vm.expectRevert(DayzePayroll.DayzePayroll__NotCancellable.selector);
         payroll.cancelStream(id);
     }
 
@@ -310,7 +310,7 @@ abstract contract DayzePayrollTest is PayrollTestBase {
         address auditor = bob;
 
         _fund(tUsdc, EMPLOYER_USDC);
-        uint256 id = _createStream(tUsdc, MONTHLY);
+        uint256 id = _createActiveStream(tUsdc, MONTHLY);
         euint64 monthly = payroll.getStream(id).monthly;
         assertTrue(FHE.isAllowed(monthly, alice));
         assertTrue(FHE.isAllowed(monthly, employer));
@@ -320,7 +320,7 @@ abstract contract DayzePayrollTest is PayrollTestBase {
 
         vm.prank(employer);
         registry.removeAuditor(bob);
-        uint256 id2 = _createStream(tUsdc, MONTHLY);
+        uint256 id2 = _createActiveStream(tUsdc, MONTHLY);
         assertFalse(FHE.isAllowed(payroll.getStream(id2).monthly, bob));
 
         vm.warp(block.timestamp + _day());
