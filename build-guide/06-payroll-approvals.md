@@ -17,7 +17,7 @@ Do these in order. The sections after **Steps** have the code and details each t
 - [ ] Share `monthly` with the policy and call `evaluate` (**Flow 1** below)
 - [ ] `allowThis` and `allowPublic` the result bit. Never `allowPublic` anything else.
 - [ ] Store `needsApproval`. Set `AwaitingPolicy`. Emit `PolicyCheckRequested`.
-- [ ] In `DayzeTestBase`, call `policy.setPayroll(payroll)` after deploying both
+- [ ] In `PayrollTestBase`, call `policy.setPayroll(payroll)` after deploying both
 
 ### 3. `resolvePolicy`
 **To do:**
@@ -26,11 +26,11 @@ Do these in order. The sections after **Steps** have the code and details each t
 ### 4. `activateApproved`
 **To do:**
 - [ ] Add it as in **Flow 4**
-- [ ] Let `cancelStream` work on `Pending` streams too
+- [ ] Let `cancelStream` work on `Pending` streams too. Set `endTime = startTime` when the stream was never `Active` (see **Pitfalls**).
 
 ### 5. Fix the 05 tests
 **To do:**
-- [ ] Add a `_createActiveStream` helper to `DayzeTestBase`: create → decrypt the bit → `resolvePolicy`
+- [ ] Add a `_createActiveStream` helper to `PayrollTestBase`: create → decrypt the bit → `resolvePolicy`
 - [ ] Switch the 05 tests to the helper. Run them. They must still pass.
 
 ### 6. New tests
@@ -128,10 +128,11 @@ Or let the policy call payroll on the k-th approval. Pick one. The pull model ab
 ```bash
 forge test --match-contract "PayrollApprovals|DecryptReplay|DayzePayroll" -vv
 ```
-- [ ] All pass. The 05 tests still pass (update them to call `resolvePolicy` through a helper in `DayzeTestBase`).
+- [ ] All pass. The 05 tests still pass (update them to call `resolvePolicy` through a helper in `PayrollTestBase`).
 - [ ] You can say what the one bit leaks: "this salary is above or below a hidden threshold" (§8)
 
 ## Pitfalls
+- **Cancel before Active:** a `Pending` stream has `startTime == 0`. If cancel sets `endTime = block.timestamp`, `_accrued` counts from 1970. Set `endTime = startTime` for a stream that never went `Active`, so it accrues 0.
 - `FHE.allowPublic` is permanent for that handle. Only call it on the bit, never on `monthly`.
 - On a live network, decryption takes seconds. The UI needs a "checking policy…" state (checkpoint 10).
 
