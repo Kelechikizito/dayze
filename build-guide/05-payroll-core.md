@@ -9,12 +9,12 @@ Do these in order. The sections after **Steps** have the code and details each t
 ### 1. Types and interface
 **To do:**
 - [ ] Create `src/interfaces/IDayzePayroll.sol` with `Status`, `Org`, `Stream`, the events and the functions (**Data model** and **Interface** below)
-- [ ] Add `uint64 endTime` to `Stream` (see **Cancel**)
+- [ ] Import `IFHERC20` from `fhenix-confidential-contracts/interfaces/IFHERC20.sol`. There is no `src/interfaces/IFHERC20.sol`.
 
 ### 2. Contract skeleton
 **To do:**
 - [ ] Create `src/DayzePayroll.sol` with `/sol-style-guide`. Inherit OZ `Ownable`.
-- [ ] Constructor takes `IApprovalPolicy`, `IAuditRegistry` and `PERIOD`
+- [ ] Constructor takes `IApprovalPolicy`, `IAuditRegistry` and `PERIOD`. Revert on a zero address or `PERIOD == 0`.
 - [ ] Add storage: orgs, streams, a next stream id, the payer and payee id lists, `s_supportedTokens`, `s_vaults`
 
 ### 3. Orgs and the token allowlist
@@ -39,25 +39,27 @@ Do these in order. The sections after **Steps** have the code and details each t
 ### 6. Accrual
 **To do:**
 - [ ] Write `_accrued` in `euint128` (**Accrual** below)
-- [ ] Use `min(block.timestamp, endTime)` for cancelled streams
+- [ ] For cancelled streams, count time up to `endTime`, not `block.timestamp`
 
 ### 7. Withdraw
 **To do:**
 - [ ] Revert if the caller isn't the payee, or the stream is not `Active` or `Cancelled`
 - [ ] Build `pay` with `FHE.select`, so an over-withdraw pays 0 (**Withdraw** below)
 - [ ] Update `withdrawn` and the vault. Re-allow both new handles.
-- [ ] Send `pay` with `confidentialTransfer`. Emit `Withdrawn`.
+- [ ] Emit `Withdrawn`. Skip the transfer if the vault was never funded (**Withdraw** below).
+- [ ] Send `pay` with `confidentialTransfer`
 
 ### 8. Cancel and views
 **To do:**
 - [ ] `cancelStream`: payer only. Set `Cancelled` and `endTime`. Emit `StreamCancelled`.
-- [ ] Write `getStream`, `streamsOfPayer`, `streamsOfPayee` and `vaultOf`
+- [ ] Write `orgOf`, `getStream`, `streamsOfPayer`, `streamsOfPayee` and `vaultOf`
 
 ### 9. Tests
 **To do:**
+- [ ] Create `test/utils/PayrollTestBase.sol`: deploy payroll, allowlist the wrappers, create the org, add helpers (**Tests** below)
 - [ ] Write the 12 unit tests in `test/unit/DayzePayrollTest.t.sol` (**Tests** below)
 - [ ] Write the fuzz test in `test/fuzz/DayzePayrollFuzzTest.t.sol`
-- [ ] Run them with `PERIOD = 30 days` and with `PERIOD = 600`
+- [ ] Run them with `PERIOD = 30 days` and with `PERIOD = 600` (one subclass each)
 - [ ] Run the checks in **Checkpoint**, then commit
 
 ## Data model
@@ -89,6 +91,7 @@ struct Stream {
     euint64 monthly; // encrypted monthly salary, in the token's 6-decimal units
     euint64 withdrawn;
     uint64 startTime; // set when it becomes Active
+    uint64 endTime; // set on cancel; accrual stops here
     Status status;
     ebool needsApproval; // used in 06
 }
@@ -167,6 +170,11 @@ function cancelStream(uint256 id) external;
                      VIEW & PURE FUNCTIONS
 //////////////////////////////////////////////////////////////*/
 
+/// @notice Returns a payer's org
+/// @param payer The payer to look up
+/// @return The org; `exists` is false if none
+function orgOf(address payer) external view returns (Org memory);
+
 /// @notice Returns a stream by id
 /// @param id The stream to look up
 /// @return The stream
@@ -200,14 +208,16 @@ euint64 amt = FHE.asEuint64(amount, proof);
 FHE.allowThis(amt);
 sharedEuint64 s = FHE.shareEuint64(amt, address(token));
 sharedEuint64 movedShared = token.confidentialTransferFrom(msg.sender, address(this), s);
-euint64 moved = FHE.receiveEuint64Param(movedShared); // actual amount (0 if payer was short)
+euint64 moved = FHE.receiveEuint64FromCall(movedShared, address(token)); // actual amount (0 if payer was short)
 euint64 vault = FHE.add(s_vaults[msg.sender][token], moved);
 s_vaults[msg.sender][token] = vault;
 FHE.allowThis(vault);
 FHE.allow(vault, msg.sender);
-_allowAuditors(msg.sender, vault);
+I_AUDIT_REGISTRY.allowAuditors(msg.sender, vault); // `using AuditAccess for IAuditRegistry`
 ```
-Credit the **returned** amount, not the requested one. An underfunded payer transfers 0. Don't credit money that never arrived. Check how `sharedEuint64` is returned and received in `IERC7984.sol` and the FHERC20 tests.
+Credit the **returned** amount, not the requested one. An underfunded payer transfers 0. Don't credit money that never arrived.
+
+Read the return value with `receiveEuint64FromCall(shared, callee)`, not `receiveEuint64Param`. `...Param` is for a value passed **in** as an argument (like `evaluate` in 04). `...FromCall` is for a value **returned** by a call you made. `callee` must be the address you just called.
 
 ### Creating a stream
 ```solidity
@@ -224,9 +234,10 @@ Store `monthlyAmt` on the stream. Allow it to `this`, payee, payer, auditors and
 /// @param s The stream
 /// @return Encrypted `monthly * elapsed / PERIOD`, in the token's units
 function _accrued(Stream storage s) internal returns (euint64) {
-    uint64 elapsed = uint64(block.timestamp) - s.startTime;
-    euint128 total = FHE.mul(FHE.asEuint128(s.monthly), FHE.asEuint128(elapsed));
-    return FHE.asEuint64(FHE.div(total, FHE.asEuint128(PERIOD)));
+    uint64 end = s.status == Status.Cancelled ? s.endTime : uint64(block.timestamp);
+    uint64 elapsed = end - s.startTime;
+    euint128 total = FHE.mul(FHE.asEuint128(s.monthly), FHE.asEuint128(uint256(elapsed)));
+    return FHE.asEuint64(FHE.div(total, FHE.asEuint128(uint256(PERIOD))));
 }
 ```
 Elapsed time is plaintext. Only the salary is encrypted (architecture §6.2). The result rounds **down** by at most one unit, so payroll never owes more than accrued. The cast back to `euint64` is safe for sane `elapsed / PERIOD`: 1,000,000 units/month × 100 years still fits.
@@ -243,18 +254,30 @@ euint64 pay = FHE.select(FHE.and(okStream, okVault), req, FHE.asEuint64(0));
 s.withdrawn = FHE.add(s.withdrawn, pay);
 s_vaults[s.payer][s.token] = FHE.sub(vault, pay);
 // re-allow both new handles: this, payee (withdrawn), payer, auditors
+emit Withdrawn(id, euint64.unwrap(s.withdrawn));
 
+if (!FHE.isInitialized(vault)) return; // never funded: pay is 0, and the token would revert
+FHE.allowThis(pay);
 s.token.confidentialTransfer(s.payee, FHE.shareEuint64(pay, address(s.token)));
 ```
 An over-withdrawal becomes a **zero transfer, never a revert**. A revert would tell watchers "the request was more than the balance".
 
+**Why skip on an unfunded vault?** If no payer ever funded this token, payroll has no balance in it. FHERC20 reverts with `FHERC20ZeroBalance` on a sender with no balance, even for a 0 transfer. `pay` is 0 anyway, so skip the call. This leaks nothing: `VaultFunded` already shows who funded which token.
+
 Plaintext checks that may revert: `msg.sender == s.payee`, and `s.status` is `Active` or `Cancelled`. A cancelled stream still pays out what accrued before cancel (see **Cancel**).
 
 ### Cancel
-Set `Cancelled` and store `endTime`. In `_accrued`, use `min(now, endTime)`. This freezes accrual. The payee can still withdraw what accrued before cancel. Add `endTime` to the struct.
+Set `Cancelled` and store `endTime`. `_accrued` counts time up to `endTime` for cancelled streams. This freezes accrual. The payee can still withdraw what accrued before cancel. In 05, only `Active` streams can be cancelled (06 adds `Pending`).
 
 ## Tests: `test/unit/DayzePayrollTest.t.sol` + `test/fuzz/DayzePayrollFuzzTest.t.sol`
 Deploy once with `PERIOD = 30 days` and once with `PERIOD = 600`. The math must hold for both.
+
+**Setup:** put shared setup in `test/utils/PayrollTestBase.sol`, not `DayzeTestBase`. `ApprovalPolicyTest` points the policy at its own harness, so a real payroll there would clash. It has:
+- an abstract `_period()`
+- `setUp`: deploy policy, registry and payroll; `addToken` cUSDC and cETH; `createOrg`; shield 10,000 USDC; `setOperator(payroll)`
+- helpers: `_fund`, `_createStream`, `_withdraw`, `_aliceBalance`
+
+Make the test contract abstract. Add two small subclasses at the bottom of the file, one per period: `DayzePayrollTest30Days` and `DayzePayrollTest600s`. Warp in fractions of `PERIOD`, so the same amounts work for both. For example, 3,000/month accrues exactly 100 per `PERIOD / 30`.
 
 1. `createOrg`. Creating twice reverts.
 2. `addToken`/`removeToken` are owner-only. `fundVault` and `createStream` with a non-allowlisted token revert.
@@ -268,7 +291,7 @@ Deploy once with `PERIOD = 30 days` and once with `PERIOD = 600`. The math must 
 10. Non-payee withdraw reverts
 11. Cancel, then warp: accrual stays frozen at cancel time
 12. ACL: payee can read `monthly`. bob (a random address) can't (`FHE.isAllowed` / mock ACL).
-13. Fuzz: `testFuzz_neverOverpays(uint64 monthly, uint32 dt, uint64 req)` → total withdrawn ≤ accrued and ≤ funded
+13. Fuzz: `testFuzz_neverOverpays(uint64 monthly, uint32 dt, uint64 req, uint64 funded)` → pays `req` if it fits both accrued and funded, else 0. Bound `dt` to 10 periods so accrual fits in 64 bits.
 
 ## ✅ Checkpoint
 ```bash
@@ -282,6 +305,8 @@ forge test --match-contract DayzePayrollTest -vv
 - **Overflow:** for large salaries, `monthly × elapsed` passes 2^64 within months. That's why accrual uses `euint128`. Use elapsed time, not raw `block.timestamp`.
 - **Units:** `monthly`, vaults and withdrawals all use the wrapper's 6-decimal units, never the underlying token's (02).
 - Don't wrap `available` in a `select` against 0 to "guard" underflow. `withdrawn ≤ accrued` always holds by design. Keep it simple and prove it with the fuzz test.
+- **`expectEmit` catches the next call.** Encrypt the input **before** `vm.expectEmit`. Otherwise it matches the `createExternalEuint64` call and fails with `log != expected log`.
+- **Unset balances:** `expectPlaintext` on a handle that was never set fails. Check `FHE.isInitialized` first, or treat an unset handle as 0.
 - Gas: each FHE op is a Task Manager call. `withdraw` is ~12 ops (`euint128` accrual adds a few). Fine on Arbitrum.
 
 ## Commit
