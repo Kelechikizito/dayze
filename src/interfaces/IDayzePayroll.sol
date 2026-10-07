@@ -1,7 +1,94 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.25;
 
+import {ebool, euint64, externalEuint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import {IFHERC20} from "fhenix-confidential-contracts/interfaces/IFHERC20.sol";
+
+/**
+ * @title IDayzePayroll
+ * @author Kelechi Kizito Ugwu
+ * @notice Encrypted salary streams paid from per-payer, per-token confidential vaults.
+ * @dev Salaries, vaults and withdrawals are encrypted. Who pays whom, in which token, is public.
+ */
 interface IDayzePayroll {
+    /*//////////////////////////////////////////////////////////////
+                           TYPE DECLARATIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Lifecycle of a stream (AwaitingPolicy and Pending are used from 06)
+    enum Status {
+        None,
+        AwaitingPolicy,
+        Pending,
+        Active,
+        Cancelled
+    }
+
+    /// @notice A payer's organisation
+    struct Org {
+        string name; // shown on credentials
+        bool exists;
+    }
+
+    /// @notice One salary stream from a payer to a payee, paid in one confidential token
+    struct Stream {
+        address payer;
+        address payee;
+        IFHERC20 token; // allowlisted wrapper (02); public, the amount isn't
+        euint64 monthly; // encrypted monthly salary, in the token's 6-decimal units
+        euint64 withdrawn;
+        uint64 startTime; // set when it becomes Active
+        uint64 endTime; // set on cancel; accrual stops here
+        Status status;
+        ebool needsApproval; // used in 06
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                                 EVENTS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Emitted when the owner allowlists a wrapper
+    /// @param token The wrapper added
+    event TokenAdded(IFHERC20 indexed token);
+
+    /// @notice Emitted when the owner removes a wrapper from the allowlist
+    /// @param token The wrapper removed
+    event TokenRemoved(IFHERC20 indexed token);
+
+    /// @notice Emitted when a payer registers an org
+    /// @param payer The payer
+    /// @param name The org name
+    event OrgCreated(address indexed payer, string name);
+
+    /// @notice Emitted when a payer funds a vault. Carries no amount.
+    /// @param payer The payer
+    /// @param token The wrapper funded
+    event VaultFunded(address indexed payer, IFHERC20 indexed token);
+
+    /// @notice Emitted when a stream is created
+    /// @param id The stream id
+    /// @param payer The payer
+    /// @param payee The payee
+    /// @param token The wrapper the stream pays in
+    /// @param monthlyHandle Handle to the encrypted monthly salary
+    event StreamCreated(
+        uint256 indexed id, address indexed payer, address indexed payee, IFHERC20 token, bytes32 monthlyHandle
+    );
+
+    /// @notice Emitted when a stream starts accruing
+    /// @param id The stream id
+    /// @param startTime When accrual starts
+    event StreamActivated(uint256 indexed id, uint64 startTime);
+
+    /// @notice Emitted on every withdraw, even one that pays 0
+    /// @param id The stream id
+    /// @param withdrawnHandle Handle to the new encrypted total withdrawn
+    event Withdrawn(uint256 indexed id, bytes32 withdrawnHandle);
+
+    /// @notice Emitted when a payer cancels a stream
+    /// @param id The stream id
+    event StreamCancelled(uint256 indexed id);
+
     /*//////////////////////////////////////////////////////////////
                            EXTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -48,6 +135,11 @@ interface IDayzePayroll {
     /*//////////////////////////////////////////////////////////////
                          VIEW & PURE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+
+    /// @notice Returns a payer's org
+    /// @param payer The payer to look up
+    /// @return The org; `exists` is false if none
+    function orgOf(address payer) external view returns (Org memory);
 
     /// @notice Returns a stream by id
     /// @param id The stream to look up
