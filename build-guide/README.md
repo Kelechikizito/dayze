@@ -59,7 +59,7 @@ You write the code.
 - [x] 03 AuditRegistry
 - [x] 04 ApprovalPolicy
 - [x] 05 DayzePayroll core
-- [ ] 06 Payroll approvals
+- [x] 06 Payroll approvals
 - [ ] 07a HumanRegistry (World ID)
 - [ ] 07 IncomeCredential
 - [ ] 08 Deploy + fork tests
