@@ -17,6 +17,7 @@ import {ApprovalPolicy} from "src/ApprovalPolicy.sol";
 import {DayzePayroll} from "src/DayzePayroll.sol";
 import {HumanRegistry} from "src/HumanRegistry.sol";
 import {IncomeCredential} from "src/IncomeCredential.sol";
+import {JoinRequests} from "src/JoinRequests.sol";
 
 /*//////////////////////////////////////////////////////////////
                 INTERFACES, LIBRARIES, CONTRACT
@@ -55,6 +56,7 @@ contract DeployScript is Script {
         address payroll;
         address humanRegistry;
         address incomeCredential;
+        address joinRequests;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -111,6 +113,7 @@ contract DeployScript is Script {
         d.payroll = address(new DayzePayroll(d.approvalPolicy, d.auditRegistry, period));
         d.humanRegistry = address(new HumanRegistry(attester));
         d.incomeCredential = address(new IncomeCredential(d.payroll, d.humanRegistry));
+        d.joinRequests = address(new JoinRequests(d.payroll));
 
         // Wiring: one-shot setters first, so every stream gets the credential
         ApprovalPolicy(d.approvalPolicy).setPayroll(d.payroll);
@@ -151,7 +154,8 @@ contract DeployScript is Script {
         vm.serializeAddress(k, "approvalPolicy", d.approvalPolicy);
         vm.serializeAddress(k, "payroll", d.payroll);
         vm.serializeAddress(k, "humanRegistry", d.humanRegistry);
-        string memory json = vm.serializeAddress(k, "incomeCredential", d.incomeCredential);
+        vm.serializeAddress(k, "incomeCredential", d.incomeCredential);
+        string memory json = vm.serializeAddress(k, "joinRequests", d.joinRequests);
         vm.writeJson(json, string.concat("deployments/", vm.toString(block.chainid), ".json"));
     }
 }

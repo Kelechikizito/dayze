@@ -4,6 +4,7 @@ export { ApprovalPolicyAbi } from "./ApprovalPolicy";
 export { AuditRegistryAbi } from "./AuditRegistry";
 export { HumanRegistryAbi } from "./HumanRegistry";
 export { IncomeCredentialAbi } from "./IncomeCredential";
+export { JoinRequestsAbi } from "./JoinRequests";
 export { ConfidentialTokenAbi } from "./ConfidentialToken";
 export { ConfidentialNativeAbi } from "./ConfidentialNative";
 export { ERC20_HarnessAbi } from "./ERC20_Harness";

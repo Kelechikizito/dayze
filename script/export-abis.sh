@@ -17,6 +17,7 @@ CONTRACTS=(
   AuditRegistry
   HumanRegistry
   IncomeCredential
+  JoinRequests
   ConfidentialToken
   ConfidentialNative
   ERC20_Harness

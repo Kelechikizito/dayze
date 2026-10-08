@@ -90,7 +90,7 @@ sizes: ## Compile and print contract sizes against the 24KB limit
 # foundry.toml raises code_size_limit for the CoFHE mocks, so forge never enforces EIP-170 itself.
 # This checks the contracts that actually go onchain against the real 24,576-byte limit.
 DEPLOYED := ApprovalPolicy AuditRegistry ConfidentialNative ConfidentialToken DayzePayroll ERC20ConfidentialLib \
-            ERC20_Harness HumanRegistry IncomeCredential
+            ERC20_Harness HumanRegistry IncomeCredential JoinRequests
 
 .PHONY: check-sizes
 check-sizes: ## Fail if any deployed contract is over the 24,576-byte EIP-170 limit
@@ -183,6 +183,12 @@ deploy-base: ## Deploy to Base Sepolia (same as make deploy CHAIN=base_sepolia)
 deploy-all: ## Deploy to Arbitrum Sepolia, then Base Sepolia, then export to the frontend
 	$(MAKE) deploy-arb
 	$(MAKE) deploy-base
+	$(MAKE) export-abis
+
+# Adds JoinRequests to a deployment made before it existed. Writes joinRequests into deployments/<chainId>.json.
+.PHONY: deploy-join-requests
+deploy-join-requests: check-chain check-SENDER check-sizes ## Add JoinRequests to CHAIN's existing deployment, then export
+	forge script script/deployment/DeployJoinRequestsScript.s.sol $(BROADCAST) $(VERIFY) -vvvv
 	$(MAKE) export-abis
 
 # Verification runs after the transactions land, so a failure here leaves deployed but

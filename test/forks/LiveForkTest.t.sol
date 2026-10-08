@@ -15,6 +15,7 @@ import {ConfidentialToken} from "src/ConfidentialToken.sol";
 import {DayzePayroll} from "src/DayzePayroll.sol";
 import {HumanRegistry} from "src/HumanRegistry.sol";
 import {IncomeCredential} from "src/IncomeCredential.sol";
+import {JoinRequests} from "src/JoinRequests.sol";
 import {DeployScript} from "script/deployment/DeployScript.s.sol";
 
 /*//////////////////////////////////////////////////////////////
@@ -84,6 +85,7 @@ contract LiveForkTest is Test {
         assertEq(HumanRegistry(d.humanRegistry).attester(), attester);
         assertEq(address(IncomeCredential(d.incomeCredential).I_PAYROLL()), d.payroll);
         assertEq(address(IncomeCredential(d.incomeCredential).I_HUMAN_REGISTRY()), d.humanRegistry);
+        assertEq(address(JoinRequests(d.joinRequests).I_PAYROLL()), d.payroll);
 
         assertEq(Ownable(d.payroll).owner(), address(deployer));
         assertEq(Ownable(d.approvalPolicy).owner(), address(deployer));
