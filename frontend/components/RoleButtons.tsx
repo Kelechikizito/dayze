@@ -5,14 +5,14 @@ import { useRouter } from "next/navigation";
 import { useRef } from "react";
 import type { Address } from "viem";
 import { useAccount, usePublicClient } from "wagmi";
-import { destinationAfterLogin, rememberRole, rememberedRole, type Role } from "@/lib/routing";
+import { destinationAfterLogin, rememberRole, type Role } from "@/lib/routing";
 import { Button } from "./ui";
 
 /**
  * "I'm an employer" / "I'm an employee". Logged out: log in first, then route.
  * Logged in: route straight away. The chain decides between console and onboarding.
  */
-export function RoleButtons() {
+export function RoleButtons({ onDark = false }: { onDark?: boolean }) {
   const router = useRouter();
   const { authenticated } = usePrivy();
   const { address } = useAccount();
@@ -24,9 +24,12 @@ export function RoleButtons() {
   };
 
   const { login } = useLogin({
-    onComplete: ({ user }) => {
-      const role = pendingRole.current ?? rememberedRole();
-      if (role) void go(role, user.wallet?.address as Address | undefined);
+    // Privy also calls this on page load for a session that's already logged in.
+    // Only route after a login the visitor just started from one of these buttons.
+    onComplete: ({ user, wasAlreadyAuthenticated }) => {
+      const role = pendingRole.current;
+      if (wasAlreadyAuthenticated || !role) return;
+      void go(role, user.wallet?.address as Address | undefined);
     },
   });
 
@@ -39,12 +42,25 @@ export function RoleButtons() {
 
   return (
     <div className="flex flex-wrap gap-3">
-      <Button variant="yellow" onClick={() => choose("employer")}>
-        I&apos;m an employer
-      </Button>
-      <Button variant="outline" onClick={() => choose("employee")}>
-        I&apos;m an employee
-      </Button>
+      {onDark ? (
+        <>
+          <Button variant="light" onClick={() => choose("employee")}>
+            I&apos;m an employee
+          </Button>
+          <Button variant="yellow" onClick={() => choose("employer")}>
+            I&apos;m an employer
+          </Button>
+        </>
+      ) : (
+        <>
+          <Button variant="dark" onClick={() => choose("employer")}>
+            I&apos;m an employer
+          </Button>
+          <Button variant="outline" onClick={() => choose("employee")}>
+            I&apos;m an employee
+          </Button>
+        </>
+      )}
     </div>
   );
 }

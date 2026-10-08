@@ -14,28 +14,35 @@ export function AnnouncementBar() {
   );
 }
 
-/** Minimal top bar: wordmark and links left, one dark pill right */
-export function SiteHeader() {
+/**
+ * Minimal top bar: wordmark and links left, auth right.
+ * @param overlay Transparent with white text, floating over the hero video
+ */
+export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
+  const link = overlay ? "px-2 text-pure-white/90 hover:text-pure-white" : "px-2 hover:text-soft-charcoal";
   return (
-    <header className="bg-pure-white">
+    <header className={overlay ? "absolute inset-x-0 top-0 z-20" : "bg-pure-white"}>
       <Container className="flex h-20 items-center justify-between">
         <div className="flex items-center gap-8">
-          <Link href="/" className="text-subheading font-medium">
+          <Link
+            href="/"
+            className={`text-subheading font-medium tracking-[0.2em] uppercase ${overlay ? "text-pure-white" : ""}`}
+          >
             Dayze
           </Link>
           <nav className="hidden items-center gap-2 md:flex">
-            <Link href="/#how" className="px-2 hover:text-soft-charcoal">
+            <Link href="/#how" className={link}>
               How it works
             </Link>
-            <Link href="/#roles" className="px-2 hover:text-soft-charcoal">
+            <Link href="/#roles" className={link}>
               Who it&apos;s for
             </Link>
-            <Link href="/audit" className="px-2 hover:text-soft-charcoal">
+            <Link href="/audit" className={link}>
               Auditors
             </Link>
           </nav>
         </div>
-        <AuthButton />
+        <AuthButton onDark={overlay} />
       </Container>
     </header>
   );

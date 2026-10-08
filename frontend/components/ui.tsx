@@ -6,7 +6,7 @@ import type { ComponentProps, ReactNode } from "react";
  * Borders are 1.5px ink, never 1px. No shadows anywhere.
  */
 
-type ButtonVariant = "dark" | "yellow" | "outline" | "outline-light";
+type ButtonVariant = "dark" | "light" | "yellow" | "outline" | "outline-light";
 
 const buttonBase =
   "inline-flex items-center justify-center gap-2 rounded-pill px-6 py-3 text-body font-medium transition-colors duration-150";
@@ -14,6 +14,8 @@ const buttonBase =
 const buttonVariants: Record<ButtonVariant, string> = {
   // Highest emphasis on light surfaces
   dark: "bg-gloss-black text-gloss-white hover:bg-soft-charcoal",
+  // Highest emphasis on dark surfaces and video
+  light: "bg-pure-white text-gloss-black hover:bg-gloss-white",
   // Hero CTA only: at most one per page
   yellow: "bg-solar-yellow text-gloss-black hover:bg-[#bdbd1f]",
   // Secondary action on light surfaces
