@@ -1,10 +1,18 @@
-import { PlaceholderPage } from "@/components/PlaceholderPage";
+import { AppGate } from "@/components/AppGate";
+import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
+import { Section } from "@/components/ui";
+import { WorkerApp } from "@/components/worker/WorkerApp";
 
-export default function WorkerApp() {
+export default function WorkerPage() {
   return (
-    <PlaceholderPage checkpoint="11" title="Your pay">
-      A ticking balance, withdrawals that never reveal the amount, unshielding, and income credentials you issue to
-      one verifier at a time.
-    </PlaceholderPage>
+    <>
+      <SiteHeader />
+      <Section tone="tint" className="flex-1 !py-12 md:!py-16">
+        <AppGate>
+          <WorkerApp />
+        </AppGate>
+      </Section>
+      <SiteFooter />
+    </>
   );
 }
