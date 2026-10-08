@@ -61,7 +61,9 @@ make deploy-arb                     # Arbitrum Sepolia
 make deploy-base                    # Base Sepolia
 make deploy-all                     # both, then export to the frontend
 ```
-`deploy-arb` and `deploy-base` are shortcuts for `make deploy CHAIN=…`. `deploy-all` stops at the first failure, so Base never deploys after a failed Arbitrum run.
+`deploy-arb` and `deploy-base` are shortcuts for `make deploy CHAIN=…`.
+
+**Adding a contract to a live deployment.** `JoinRequests` came after the first Arbitrum deploy. `make deploy-join-requests` runs `script/deployment/DeployJoinRequestsScript.s.sol`: it reads `payroll` from `deployments/<chainId>.json`, deploys `JoinRequests(payroll)`, writes `joinRequests` back into the same file (only on `--broadcast`), and re-exports to the frontend. Payroll isn't redeployed. Fresh deployments get it from `DeployScript`. `deploy-all` stops at the first failure, so Base never deploys after a failed Arbitrum run.
 `make deploy` runs:
 ```bash
 DEMO_PERIOD=600 forge script script/deployment/DeployScript.s.sol \

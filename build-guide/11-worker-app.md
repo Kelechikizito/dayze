@@ -33,6 +33,16 @@ The employee opens the invite link from their employer (10 §5). One `<Stepper>`
 
 An employee who already has a stream skips onboarding and lands on `/worker`.
 
+**Built differently: no address by hand.** Step 4 is **"Ask <org> to pay you"**: one transaction to `JoinRequests.requestToJoin(org)` (a small standalone contract that reads payroll's orgs). The employer sees it under **Join requests** in their console, with the worker's human badge and a **Set salary** button that fills in New stream. Workers already paid by that employer drop off the list without a second transaction. Fallbacks under "Other ways": a pay-me link (`/employer?payee=<address>`, which pre-fills the form) and the plain address with a QR code.
+
+**Email when pay starts.** After `createStream` resolves (and after `activateApproved`), the employer's console calls `/api/notify` with only `{ chainId, streamId }`. The server:
+- reads the stream from the chain, so it can only email a real stream's payee
+- looks up the payee's verified email with Privy's server API (`POST /v1/users/wallet/address`: the email login, else Google). Dayze stores no emails, and none go onchain
+- sends with Resend: "<Org> started paying you on Dayze", or "set up your pay" while it awaits approval. **Never an amount.**
+- sends each (chain, stream, status) once per server instance
+
+Env: `RESEND_API_KEY`, optional `NOTIFY_FROM_EMAIL` and `NEXT_PUBLIC_APP_URL`; uses the existing `PRIVY_APP_SECRET`. Wallet-only users can add an email with Privy's `linkEmail()`, which verifies it with a code.
+
 ### 1. Live balance (the hero)
 
 **To do:**
