@@ -15,7 +15,7 @@ import {ConfidentialToken} from "src/ConfidentialToken.sol";
 import {DayzePayroll} from "src/DayzePayroll.sol";
 import {HumanRegistry} from "src/HumanRegistry.sol";
 import {IncomeCredential} from "src/IncomeCredential.sol";
-import {Deploy} from "script/deployment/Deploy.s.sol";
+import {DeployScript} from "script/deployment/DeployScript.s.sol";
 
 /*//////////////////////////////////////////////////////////////
                 INTERFACES, LIBRARIES, CONTRACT
@@ -36,10 +36,10 @@ contract LiveForkTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice The deploy script, which owns everything it deploys in this test
-    Deploy internal deployer;
+    DeployScript internal deployer;
 
     /// @notice A fresh deployment on the fork
-    Deploy.Deployment internal d;
+    DeployScript.Deployment internal d;
 
     /// @notice Pay period for the fresh deployment
     uint64 internal constant PERIOD = 600;
@@ -60,7 +60,7 @@ contract LiveForkTest is Test {
             vm.skip(true);
             return;
         }
-        deployer = new Deploy();
+        deployer = new DeployScript();
         d = deployer.deploy(PERIOD, attester, deployer.wethFor(block.chainid));
     }
 

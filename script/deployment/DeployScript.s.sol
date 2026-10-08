@@ -23,7 +23,7 @@ import {IncomeCredential} from "src/IncomeCredential.sol";
 //////////////////////////////////////////////////////////////*/
 
 /**
- * @title Deploy
+ * @title DeployScript
  * @author Kelechi Kizito Ugwu
  * @notice Deploys and wires every Dayze contract on Arbitrum Sepolia or Base Sepolia.
  * @dev Signer comes from `--account`, never from a private key in env. Writes `deployments/<chainId>.json`.
@@ -31,13 +31,13 @@ import {IncomeCredential} from "src/IncomeCredential.sol";
  *      `WETH` (optional; defaults to the chain's canonical WETH).
  *      `deploy` is public so fork tests can run the exact same wiring without broadcasting.
  */
-contract Deploy is Script {
+contract DeployScript is Script {
     /*//////////////////////////////////////////////////////////////
                                  ERRORS
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Thrown on a chain with no known WETH and no `WETH` env var
-    error Deploy__UnknownWeth(uint256 chainId);
+    error DeployScript__UnknownWeth(uint256 chainId);
 
     /*//////////////////////////////////////////////////////////////
                            TYPE DECLARATIONS
@@ -127,7 +127,7 @@ contract Deploy is Script {
     function wethFor(uint256 chainId) public pure returns (address) {
         if (chainId == 421614) return WETH_ARBITRUM_SEPOLIA;
         if (chainId == 84532) return WETH_BASE_SEPOLIA;
-        revert Deploy__UnknownWeth(chainId);
+        revert DeployScript__UnknownWeth(chainId);
     }
 
     /*//////////////////////////////////////////////////////////////
