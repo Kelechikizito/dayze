@@ -1,5 +1,5 @@
 import { formatUnits, parseUnits, type Address } from "viem";
-import { addresses, type SupportedChainId } from "./contracts/addresses";
+import { addresses } from "./contracts/addresses";
 
 /*
  * The three confidential wrappers. Every confidential amount (balances, salaries, vaults,
@@ -77,6 +77,6 @@ export function toUnderlying(token: ConfidentialTokenInfo, units: bigint): bigin
 }
 
 /** Whether Dayze is deployed on a chain */
-export function isDeployedOn(chainId: number | undefined): chainId is SupportedChainId {
+export function isDeployedOn(chainId: number | undefined): boolean {
   return chainId !== undefined && String(chainId) in addresses;
 }
