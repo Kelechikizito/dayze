@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import { Badge, ButtonLink } from "@/components/ui";
 import { useDayze } from "@/hooks/useDayze";
 import { ApprovalsSection } from "./ApprovalsSection";
@@ -11,13 +12,21 @@ import { useOrg } from "./OrgSection";
 import { PolicySection, usePolicy } from "./PolicySection";
 import { StreamsSection, inviteCopied } from "./StreamsSection";
 
-/** The employer dashboard (10): streams first, then approvals, vault, rules and auditors */
-export function EmployerConsole() {
+/**
+ * The employer dashboard (10): streams first, then approvals, vault, rules and auditors.
+ * @param payee From a worker's "pay me" link: pre-fills New stream and scrolls to it
+ */
+export function EmployerConsole({ payee }: { payee?: string }) {
   const { account } = useDayze();
   const { org, exists, isLoading } = useOrg();
   const { hasPolicy } = usePolicy();
   const auditors = useAuditors();
   const { skipped } = useSkippedSteps();
+
+  // From a pay-me link: the form renders after the wallet check, so the #streams jump needs a nudge
+  useEffect(() => {
+    if (payee && exists) document.getElementById("streams")?.scrollIntoView({ behavior: "smooth" });
+  }, [payee, exists]);
 
   if (isLoading) return <p className="py-10 text-mid-grey">Loading your organisation…</p>;
 
@@ -67,7 +76,7 @@ export function EmployerConsole() {
       )}
 
       <div id="streams">
-        <StreamsSection />
+        <StreamsSection initialPayee={payee} />
       </div>
       <ApprovalsSection />
       <div id="vault">

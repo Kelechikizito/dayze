@@ -12,6 +12,8 @@ export type Deployment = {
   auditRegistry: Address;
   humanRegistry: Address;
   incomeCredential: Address;
+  /** Added after the first deploy (make deploy-join-requests); undefined until then */
+  joinRequests?: Address;
   usdc: Address;
   arb: Address;
   cusdc: Address;

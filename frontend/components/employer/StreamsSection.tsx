@@ -13,7 +13,9 @@ import { useDayze } from "@/hooks/useDayze";
 import { useTx } from "@/hooks/useTx";
 import { DayzePayrollAbi, HumanRegistryAbi } from "@/lib/contracts/abis";
 import { encryptUint64 } from "@/lib/fhe";
+import { notifyStreamPayee } from "@/lib/notify";
 import { parseConfidential, type TokenKey } from "@/lib/tokens";
+import { JoinRequestsList } from "./JoinRequestsList";
 import { StreamStatus, statusLabel, useResolvePolicy, useStreamsOfPayer } from "./streams";
 
 /** "✓ verified human" or "not verified", from HumanRegistry (07a). A hint against ghost employees, not a block. */
@@ -77,26 +79,37 @@ export function InviteLink({ onCopied }: { onCopied?: () => void }) {
   );
 }
 
-/** §5 Streams: invite, create a stream, and the streams table */
-export function StreamsSection() {
+/**
+ * §5 Streams: invite, create a stream, and the streams table.
+ * @param initialPayee From a worker's "pay me" link (/employer?payee=0x…): pre-fills the New stream form
+ */
+export function StreamsSection({ initialPayee }: { initialPayee?: string }) {
+  // A join request's "Set salary" (or a pay-me link) pre-fills New stream. Keyed so the form takes the new value.
+  const [prefill, setPrefill] = useState(initialPayee);
   return (
     <Panel
       title="Salary streams"
       help="Each salary is encrypted in your browser. It accrues every second once the stream is active."
     >
       <InviteLink />
-      <CreateStreamForm />
+      <JoinRequestsList
+        onSetSalary={(employee) => {
+          setPrefill(employee);
+          document.getElementById("new-stream")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }}
+      />
+      <CreateStreamForm key={prefill ?? "new"} initialPayee={prefill} />
       <StreamsTable />
     </Panel>
   );
 }
 
-function CreateStreamForm() {
-  const { d, tokens } = useDayze();
+function CreateStreamForm({ initialPayee }: { initialPayee?: string }) {
+  const { d, tokens, chainId } = useDayze();
   const cofhe = useCofheClient();
   const tx = useTx();
   const resolve = useResolvePolicy(tx);
-  const [payee, setPayee] = useState("");
+  const [payee, setPayee] = useState(initialPayee && isAddress(initialPayee) ? initialPayee : "");
   const [key, setKey] = useState<TokenKey>(tokens[0]?.key ?? "cusdc");
   const [monthly, setMonthly] = useState("");
   const [outcome, setOutcome] = useState<string>();
@@ -145,6 +158,7 @@ function CreateStreamForm() {
 
     const needsApproval = await resolve(id);
     if (needsApproval === undefined) return;
+    notifyStreamPayee(chainId, id);
     setOutcome(
       needsApproval
         ? `Stream #${id} is above your hidden threshold. It's waiting for approvals.`
@@ -156,6 +170,7 @@ function CreateStreamForm() {
 
   return (
     <form
+      id="new-stream"
       className="flex flex-col gap-4 border-t-[1.5px] border-gloss-black pt-6"
       onSubmit={(e) => {
         e.preventDefault();

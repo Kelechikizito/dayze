@@ -10,6 +10,7 @@ import { Button } from "@/components/ui";
 import { useDayze } from "@/hooks/useDayze";
 import { useTx } from "@/hooks/useTx";
 import { ApprovalPolicyAbi, DayzePayrollAbi } from "@/lib/contracts/abis";
+import { notifyStreamPayee } from "@/lib/notify";
 import { StreamStatus, type StreamRow } from "./streams";
 
 type QueueItem = { stream: StreamRow; count: number; required: number; approved: boolean };
@@ -64,7 +65,7 @@ export function useApprovalQueue() {
 
 /** §6 Approvals: approve pending streams, then activate them once they have enough approvals */
 export function ApprovalsSection() {
-  const { d, tokens } = useDayze();
+  const { d, tokens, chainId } = useDayze();
   const { data: queue, isLoading, refetch } = useApprovalQueue();
   const tx = useTx();
   const symbolOf = (wrapper: Address) => tokens.find((t) => t.wrapper.toLowerCase() === wrapper.toLowerCase())?.symbol ?? "?";
@@ -74,7 +75,8 @@ export function ApprovalsSection() {
     void refetch();
   };
   const activate = async (id: bigint) => {
-    await tx.run(() => ({ address: d!.payroll, abi: DayzePayrollAbi, functionName: "activateApproved", args: [id] }));
+    const receipt = await tx.run(() => ({ address: d!.payroll, abi: DayzePayrollAbi, functionName: "activateApproved", args: [id] }));
+    if (receipt) notifyStreamPayee(chainId, id);
     void refetch();
   };
 
