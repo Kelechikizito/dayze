@@ -7,7 +7,7 @@ import { WagmiProvider, createConfig, useSetActiveWallet } from "@privy-io/wagmi
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 import { http, useAccount, usePublicClient, useWalletClient } from "wagmi";
-import { defaultChain, rpcUrls, supportedChains } from "@/lib/chains";
+import { defaultChain, privyChains, rpcUrls, supportedChains } from "@/lib/chains";
 
 /*
  * Order matters: Privy → React Query → wagmi → CoFHE.
@@ -42,7 +42,8 @@ function ActiveWalletSync() {
   useEffect(() => {
     if (!authenticated || !ready || address || wallets.length === 0) return;
     const preferred = wallets.find((w) => w.walletClientType === "privy") ?? wallets[0];
-    void setActiveWallet(preferred);
+    // An injected wallet that's locked or hasn't approved this site rejects here; AppGate then offers a retry
+    setActiveWallet(preferred).catch((e) => console.warn("[dayze] couldn't activate wallet", preferred.address, e));
   }, [authenticated, ready, address, wallets, setActiveWallet]);
 
   return null;
@@ -77,8 +78,8 @@ export function Providers({ children }: { children: ReactNode }) {
       appId={appId}
       config={{
         loginMethods: ["email", "google", "wallet"],
-        defaultChain,
-        supportedChains: [...supportedChains],
+        defaultChain: privyChains.find((c) => c.id === defaultChain.id) ?? defaultChain,
+        supportedChains: privyChains,
         embeddedWallets: { ethereum: { createOnLogin: "users-without-wallets" } },
         appearance: { theme: "light", accentColor: "#17150e" },
       }}
