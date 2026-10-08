@@ -36,10 +36,12 @@ Do these in order. The sections after **Steps** have the code and details each t
 
 ### 5. Backend routes (now, or when you reach 11 §0)
 **To do:**
-- [ ] In `frontend/`, run `npm install @worldcoin/idkit @worldcoin/idkit-core`
+- [ ] In `frontend/`, run `npm install --save-exact @worldcoin/idkit@4.4.0 @worldcoin/idkit-core@4.4.0`
+- [ ] Create `lib/worldid.ts`: the action, the EIP-712 domain and types, and `signalFor(wallet)` (shared by client and server)
 - [ ] Create `app/api/world-id/rp-signature/route.ts` (**Backend** step 2)
 - [ ] Create `app/api/world-id/attest/route.ts` (**Backend** step 3)
-- [ ] Test both with the World simulator (`environment: "staging"`)
+- [ ] Check viem's `hashTypedData` matches the contract's digest (**Backend** below)
+- [ ] Test both with the World simulator (`environment: "staging"`). The full flow needs the deploy (08) and the worker onboarding UI (11).
 - [ ] Commit the routes separately from the contract
 
 ## Why a backend attester?
@@ -122,19 +124,30 @@ No FHE here. This is a plain contract.
 Follow [World's IDKit guide](https://docs.world.org/world-id/idkit/integrate). Use IDKit `4.x`.
 
 1. **Developer Portal:** create an app and an action `dayze-register`. Keep `app_id`, `rp_id` and the `signing_key`. The portal shows the key **once**.
-2. **`app/api/world-id/rp-signature/route.ts`:** `signRequest({ signingKeyHex: process.env.RP_SIGNING_KEY, action })` from `@worldcoin/idkit-core/signing`.
+2. **`app/api/world-id/rp-signature/route.ts`:** `signRequest({ signingKeyHex: process.env.WORLDID_RP_SIGNING_KEY, action: "dayze-register" })` from `@worldcoin/idkit-core/signing`.
+   - Always sign `dayze-register`. Ignore any action the client sends.
+   - Also return the public `app_id`, `rp_id` and `environment`, so the client needs no `NEXT_PUBLIC_*` World ID vars.
 3. **`app/api/world-id/attest/route.ts`:**
+   - Body: `{ idkitResponse, wallet, chainId }`. Look up `humanRegistry` for `chainId` in `lib/contracts/addresses.ts`. Reject unknown chains.
+   - Check `idkitResponse.action === "dayze-register"` and `environment` is what you expect.
+   - Check the proof's **signal is the worker's wallet**: every `responses[i].signal_hash` must equal `hashSignal(wallet.toLowerCase())` from `@worldcoin/idkit-core/hashing`. Compare as `BigInt`. `signal_hash` is optional in the types, so a missing one fails. The client must pass the same lowercased address as the IDKit signal.
    - Forward the IDKit result **as-is** to `/api/v4/verify/{rp_id}`. Don't remap fields.
    - Check that `success === true` and that `environment` is what you expect.
-   - Check the proof's **signal is the worker's wallet address**. That ties the proof to one wallet.
+   - `nullifier = BigInt(responses[0].nullifier)`. It can be decimal or hex; `BigInt` takes both.
    - Sign the attestation with viem `signTypedData` using `ATTESTER_PRIVATE_KEY`. Use the same domain, types and chain id as the contract.
    - Return `{ nullifier, deadline, signature }`. Set the deadline to 10 minutes from now.
 
-Env vars (Vercel, **server only**, never `NEXT_PUBLIC_*`, never logged):
+Env vars (`frontend/.env.local` and Vercel, **server only**, never `NEXT_PUBLIC_*`, never logged):
 ```
-RP_SIGNING_KEY=...          # from the World Developer Portal
-ATTESTER_PRIVATE_KEY=...    # a fresh key used only for signing. It holds no funds and sends no txs.
+WORLDID_RP_SIGNING_KEY=...  # from the World Developer Portal; shown once
+WORLDID_APP_ID=app_...      # public, but read server-side and passed to the client
+WORLDID_RP_ID=rp_...
+WORLDID_ENVIRONMENT=staging # optional; "production" for real World IDs. Defaults to staging.
+ATTESTER_PRIVATE_KEY=0x...  # a fresh key used only for signing. It holds no funds and sends no txs.
 ```
+`ATTESTER` in the root `.env` is this key's **address**. Check they match: `cast wallet address --private-key $ATTESTER_PRIVATE_KEY`.
+
+**Check the typed data once.** Hash a sample attestation with viem's `hashTypedData`, and again by hand with the contract's formula (`keccak256("\x19\x01" ‖ domainSeparator ‖ structHash)`, as in `HumanRegistryTest`). They must be equal. If they differ, `register` reverts with `BadSignature` and nothing else tells you why.
 The attester never pays gas. The worker sends `register`.
 
 **Testing:** use World's [simulator](https://simulator.worldcoin.org/) with `environment: "staging"`. Switch to `production` for the demo only if you have a real World ID.
