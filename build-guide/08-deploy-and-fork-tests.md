@@ -57,9 +57,11 @@ function run() external {
 
 ```bash
 make check-deployer                 # keystore address == DEPLOYER
-make deploy                         # Arbitrum Sepolia
-make deploy CHAIN=base_sepolia      # Base Sepolia
+make deploy-arb                     # Arbitrum Sepolia
+make deploy-base                    # Base Sepolia
+make deploy-all                     # both, then export to the frontend
 ```
+`deploy-arb` and `deploy-base` are shortcuts for `make deploy CHAIN=…`. `deploy-all` stops at the first failure, so Base never deploys after a failed Arbitrum run.
 `make deploy` runs:
 ```bash
 DEMO_PERIOD=600 forge script script/deployment/DeployScript.s.sol \

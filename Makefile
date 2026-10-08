@@ -139,11 +139,11 @@ test-fork-all: ## Run the fork tests on Arbitrum Sepolia and Base Sepolia
 #   make check-deployer
 #   make balance
 #   make deploy-dry
-#   make deploy
+#   make deploy-arb                   # or make deploy-base, or make deploy-all for both
 #   make export-abis
 #   make test-fork
 #
-# Repeat with CHAIN=base_sepolia. ATTESTER (07a) is read from .env and is immutable until
+# Every target here also takes CHAIN=base_sepolia. ATTESTER (07a) is read from .env and is immutable until
 # setAttester, so check it before deploying.
 
 .PHONY: check-deployer
@@ -169,6 +169,21 @@ deploy-dry: check-chain check-SENDER ## Simulate the whole deploy on CHAIN, free
 deploy: check-chain check-SENDER check-sizes ## Deploy, wire and verify everything on CHAIN
 	DEMO_PERIOD=$(DEMO_PERIOD) forge script $(DEPLOY_SCRIPT) $(BROADCAST) $(VERIFY) -vvvv || \
 		{ rm -f deployments/$(CHAIN_ID).json; echo "deploy failed: removed deployments/$(CHAIN_ID).json"; exit 1; }
+
+.PHONY: deploy-arb
+deploy-arb: ## Deploy to Arbitrum Sepolia (same as make deploy)
+	$(MAKE) deploy CHAIN=arbitrum_sepolia
+
+.PHONY: deploy-base
+deploy-base: ## Deploy to Base Sepolia (same as make deploy CHAIN=base_sepolia)
+	$(MAKE) deploy CHAIN=base_sepolia
+
+# Stops at the first failure, so Base never deploys after a failed Arbitrum run.
+.PHONY: deploy-all
+deploy-all: ## Deploy to Arbitrum Sepolia, then Base Sepolia, then export to the frontend
+	$(MAKE) deploy-arb
+	$(MAKE) deploy-base
+	$(MAKE) export-abis
 
 # Verification runs after the transactions land, so a failure here leaves deployed but
 # unverified contracts. Nothing to redeploy, just re-run this. It reads the addresses from the
