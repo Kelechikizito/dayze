@@ -87,3 +87,93 @@
 @utility bg-periwinkle-wash {
   background: var(--gradient-periwinkle);
 }
+
+/*
+ * Motion. Everything eases out and stays under ~700ms, so it reads as editorial, not flashy.
+ * With "reduce motion" on, elements simply appear in their final state.
+ */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 700ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    transform 700ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.reveal[data-visible="true"] {
+  opacity: 1;
+  transform: none;
+}
+
+.rise-word {
+  transform: translateY(105%);
+  animation: rise 800ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+}
+@keyframes rise {
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* CSS-only entrance for above-the-fold content: plays before hydration, unlike .reveal */
+.fade-up {
+  opacity: 0;
+  transform: translateY(24px);
+  animation: fade-up 700ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+}
+@keyframes fade-up {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.draw-line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: draw 1600ms cubic-bezier(0.4, 0, 0.2, 1) 400ms forwards;
+}
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.rule-grow {
+  transform-origin: left;
+  transform: scaleX(0);
+  transition: transform 900ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+[data-visible="true"] .rule-grow,
+.rule-grow[data-visible="true"] {
+  transform: scaleX(1);
+}
+
+.pulse-dot {
+  animation: pulse-dot 1.6s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .fade-up,
+  .rise-word,
+  .draw-line,
+  .rule-grow {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+    transition: none !important;
+    stroke-dashoffset: 0 !important;
+  }
+  .pulse-dot {
+    animation: none;
+  }
+}
