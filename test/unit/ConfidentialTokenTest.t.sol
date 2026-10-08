@@ -7,8 +7,7 @@ pragma solidity 0.8.25;
 import {externalEuint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import {ERC20ConfidentialLib} from "fhenix-confidential-contracts/ERC20Confidential/ERC20ConfidentialLib.sol";
 import {FHERC20WrapperClaims} from "fhenix-confidential-contracts/FHERC20/utils/FHERC20WrapperClaims.sol";
-import {FHERC20NativeWrapperCore} from
-    "fhenix-confidential-contracts/FHERC20/extensions/FHERC20NativeWrapperCore.sol";
+import {FHERC20NativeWrapperCore} from "fhenix-confidential-contracts/FHERC20/extensions/FHERC20NativeWrapperCore.sol";
 import {CofheClient} from "@cofhe/foundry-plugin/CofheClient.sol";
 import {DayzeTestBase} from "../utils/DayzeTestBase.sol";
 

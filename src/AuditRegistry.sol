@@ -3,6 +3,7 @@ pragma solidity 0.8.25;
 
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import {IAuditRegistry} from "src/interfaces/IAuditRegistry.sol";
+
 /**
  * @title AuditRegistry
  * @author Kelechi Kizito Ugwu
