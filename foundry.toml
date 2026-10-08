@@ -8,6 +8,11 @@ solc_version = "0.8.25"
 evm_version = "cancun"
 auto_detect_remappings = false
 
+# The optimizer is off by default in Foundry 1.x. Without it ConfidentialNative is 24,693 bytes,
+# over the 24,576-byte EIP-170 limit, and a live deploy fails with CreateContractSizeLimit.
+optimizer = true
+optimizer_runs = 200
+
 # The CoFHE mock coprocessor contracts exceed the EIP-170 24KB limit. So do test
 # contracts: CofheTest alone is ~76KB and each CofheClient adds ~25KB. None of
 # them go to a live chain, so the limit is raised locally. Check real contracts
