@@ -7,7 +7,8 @@ import { WagmiProvider, createConfig, useSetActiveWallet } from "@privy-io/wagmi
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 import { http, useAccount, usePublicClient, useWalletClient } from "wagmi";
-import { defaultChain, privyChains, rpcUrls, supportedChains } from "@/lib/chains";
+import { defaultChain, rpcUrls, supportedChains } from "@/lib/chains";
+import { privyChains } from "@/lib/privyChains";
 
 /*
  * Order matters: Privy → React Query → wagmi → CoFHE.

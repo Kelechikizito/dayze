@@ -14,8 +14,13 @@ type WriteParams = Omit<Parameters<ReturnType<typeof useWriteContract>["writeCon
 /** A readable one-line error from viem, wallet or SDK errors */
 export function shortError(e: unknown): string {
   // The most common testnet failure: a new embedded wallet with no ETH for gas
-  if (/insufficient funds/i.test(fullText(e))) {
+  const text = fullText(e);
+  if (/insufficient funds/i.test(text)) {
     return "Your wallet has no ETH for gas. Send it a little testnet ETH (0.005 is plenty), then try again.";
+  }
+  // Privy's embedded wallet signs only with a live login session; it expires during long detours (World App, idle tabs)
+  if (/invalid auth token|session.*expired|not authenticated/i.test(text)) {
+    return "Your login session expired. Log out, log back in with the same account, then try again.";
   }
   if (e && typeof e === "object") {
     const err = e as { shortMessage?: string; details?: string; message?: string };
