@@ -41,7 +41,7 @@ Do these in order. The sections after **Steps** have the code and details each t
 - [ ] Create `app/api/world-id/rp-signature/route.ts` (**Backend** step 2)
 - [ ] Create `app/api/world-id/attest/route.ts` (**Backend** step 3)
 - [ ] Check viem's `hashTypedData` matches the contract's digest (**Backend** below)
-- [ ] Test both with the World simulator (`environment: "staging"`). The full flow needs the deploy (08) and the worker onboarding UI (11).
+- [ ] Test both in a test environment: the simulator (`staging`) or the sandbox World ID app (`sandbox`). The full flow needs the deploy (08) and the worker onboarding UI (11).
 - [ ] Commit the routes separately from the contract
 
 ## Why a backend attester?
@@ -142,15 +142,37 @@ Env vars (`frontend/.env.local` and Vercel, **server only**, never `NEXT_PUBLIC_
 WORLDID_RP_SIGNING_KEY=...  # from the World Developer Portal; shown once
 WORLDID_APP_ID=app_...      # public, but read server-side and passed to the client
 WORLDID_RP_ID=rp_...
-WORLDID_ENVIRONMENT=staging # optional; "production" for real World IDs. Defaults to staging.
+NEXT_PUBLIC_WLD_ENVIRONMENT=sandbox # staging | sandbox | production. Public: the widget reads it too. Defaults to staging.
 ATTESTER_PRIVATE_KEY=0x...  # a fresh key used only for signing. It holds no funds and sends no txs.
+NULLIFIER_SALT=0x...        # 32 random bytes (openssl rand -hex 32, add 0x). Server only. Never change it.
 ```
 `ATTESTER` in the root `.env` is this key's **address**. Check they match: `cast wallet address --private-key $ATTESTER_PRIVATE_KEY`.
 
 **Check the typed data once.** Hash a sample attestation with viem's `hashTypedData`, and again by hand with the contract's formula (`keccak256("\x19\x01" ‖ domainSeparator ‖ structHash)`, as in `HumanRegistryTest`). They must be equal. If they differ, `register` reverts with `BadSignature` and nothing else tells you why.
 The attester never pays gas. The worker sends `register`.
 
-**Testing:** use World's [simulator](https://simulator.worldcoin.org/) with `environment: "staging"`. Switch to `production` for the demo only if you have a real World ID.
+**Environments** (`NEXT_PUBLIC_WLD_ENVIRONMENT`, read by `worldIdEnvironment()` in `lib/worldid.ts`):
+- `staging`: World's [simulator](https://simulator.worldcoin.org/).
+- `sandbox`: the sandbox World ID app. Request tester access under **World ID Sandbox** in the Developer Portal, then install it through TestFlight (iOS) or Google Play testing (Android). Proofs still go to the production verify endpoint.
+- `production`: real World IDs. Use it for the demo only if you have one.
+
+**Selfie Check, once, permanent.** Same setup as Herit, which works:
+- The widget uses `selfieCheckLegacy({ signal })` with `allow_legacy_proofs`. Selfie Check (Beta) is a World ID 3.0 credential; that's what "Legacy" means.
+- `attest` forwards the IDKit result exactly as returned, picks the response whose `identifier` is `selfie` (or its old alias `face`), and rejects anything else (Orb, documents). Both result shapes work: 3.0 and 4.0.
+- It fails closed: only `success: true`, or verified responses with no error code, counts as verified.
+- It logs the `sybil_score` but doesn't block on it.
+- One-time: no sessions, no `require_user_presence`. `HumanRegistry.isHuman` never expires.
+- The client saves the signed attestation in `localStorage` until `register` succeeds and shows "Finish registration" to retry. The attestation is valid for 7 days.
+- Two chains, one action: a person can complete `dayze-register` once. For Base too, create a second action (e.g. `dayze-register-84532`) and pick it by chain id.
+
+**Portal checklist.** "Verification unavailable" in the widget is almost always one of these, and they all look like code bugs:
+1. The World app's `app_mode` is **external**, not mini-app. Fixed at creation.
+2. **Selfie Check (Beta)** is enabled for the app. It's a per-app flag that World turns on.
+3. The action `dayze-register` **exists in the environment** you point at (`staging`, `sandbox` or `production`).
+
+The widget now names the cause (`worldIdErrorMessage`) and logs IDKit's debug report.
+
+**Salted nullifier.** `HumanRegistry` stores `keccak256(abi.encode(uint256 nullifier, bytes32 NULLIFIER_SALT))`, not the raw nullifier. A raw nullifier is guessable: anyone who gets a person's proof for `dayze-register` could compare it with the chain and find their wallet. The server-only salt breaks that. Uniqueness still holds. The salt and the encoding must never change, or one person gets a second commitment. No contract change: `register` takes a `uint256`.
 
 ## Tests: `test/unit/HumanRegistryTest.t.sol`
 Sign attestations in the test with `vm.sign(attesterPk, digest)`.

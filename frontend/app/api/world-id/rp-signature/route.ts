@@ -1,6 +1,6 @@
 import { signRequest } from "@worldcoin/idkit-core/signing";
 import { NextResponse } from "next/server";
-import { WORLDID_ACTION, type RpSignatureResponse } from "@/lib/worldid";
+import { WORLDID_ACTION, worldIdEnvironment, type RpSignatureResponse } from "@/lib/worldid";
 
 /*
  * Signs a World ID proof request so World App knows it really comes from Dayze (07a, step 2).
@@ -30,9 +30,4 @@ export async function POST() {
     environment: worldIdEnvironment(),
   };
   return NextResponse.json(body);
-}
-
-/** "staging" works with World's simulator; set WORLDID_ENVIRONMENT=production for real World IDs */
-function worldIdEnvironment(): "production" | "staging" {
-  return process.env.WORLDID_ENVIRONMENT === "production" ? "production" : "staging";
 }
