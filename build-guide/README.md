@@ -94,7 +94,9 @@ test/
   mocks/        AuditHarness.sol, PayrollHarness.sol  (ERC20 + WETH mocks come from Fhenix's ERC20_Harness.sol)
   utils/        DayzeTestBase.sol
 script/
-  Deploy.s.sol
+  deployment/DeployScript.s.sol
+  interaction/InteractionsScript.s.sol
+  export-abis.sh
   seed.sh                        (cast + keystore; encryption via frontend/scripts/encrypt.ts)
 frontend/
   app/(employer|worker|verify|audit)/...

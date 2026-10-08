@@ -7,14 +7,15 @@ All contracts live on Arbitrum Sepolia and Base Sepolia with real CoFHE. Demo da
 
 ## Steps
 
-### 1. `script/deployment/Deploy.s.sol`
+### 1. `script/deployment/DeployScript.s.sol`
 
 **To do:**
-- [ ] Create `script/deployment/Deploy.s.sol`. Deploy and wire everything in the order below.
+- [ ] Create `script/deployment/DeployScript.s.sol`. Deploy and wire everything in the order below.
 - [ ] Put the wiring in a public `deploy(period, attester, weth)` function. `run()` calls it inside the broadcast. Fork tests call it directly.
 - [ ] Read `DEMO_PERIOD` and `ATTESTER` from env. Pick WETH by chain id, with an optional `WETH` env override.
 - [ ] Write the addresses to `deployments/<chainId>.json`, **only on `--broadcast`** (`vm.isContext(VmSafe.ForgeContext.ScriptBroadcast)`)
 - [ ] In `foundry.toml`: add `fs_permissions` for `./deployments`, and an `[etherscan]` entry per chain
+- [ ] In `foundry.toml`: turn on the optimizer (`optimizer = true`, `optimizer_runs = 200`). Check every deployed contract is under 24,576 bytes: `make check-sizes`.
 - [ ] Check your keystore matches `DEPLOYER` (`make check-deployer`) and has gas (`make balance`)
 - [ ] Dry run (`make deploy-dry`). Then broadcast (`make deploy`). Repeat with `CHAIN=base_sepolia`.
 - [ ] Check every contract is verified on Arbiscan and Basescan
@@ -61,12 +62,35 @@ make deploy CHAIN=base_sepolia      # Base Sepolia
 ```
 `make deploy` runs:
 ```bash
-DEMO_PERIOD=600 forge script script/deployment/Deploy.s.sol \
+DEMO_PERIOD=600 forge script script/deployment/DeployScript.s.sol \
   --rpc-url $CHAIN --account $ACCOUNT --sender $DEPLOYER --broadcast --verify -vvvv
 ```
 Forge asks for the keystore password. `--sender` must match the keystore address. If not, the simulation runs as the wrong address and ownership ends up wrong. If the linked library fails to verify, verify it alone with `forge verify-contract`.
 
-### 2. Seeding (works with the keystore)
+### 2. Interaction scripts: `script/interaction/InteractionsScript.s.sol`
+
+**To do:**
+- [ ] Create `InteractionsScript.s.sol` with one function per **plaintext** call. Read addresses from `deployments/<chainId>.json`.
+- [ ] Add a `make` target per function (list below)
+- [ ] Test the whole flow on a local Anvil fork before using it live (**Testing on Anvil** below)
+
+| Function | `make` target |
+|---|---|
+| `mintDemoTokens(usdc, arb)` | `make mint-demo` |
+| `shieldUsdc(amount)`, `shieldArb(amount)`, `shieldEth(wei)` | `make shield-usdc AMOUNT=…`, `shield-arb`, `shield-eth` |
+| `setPayrollOperator()` | `make set-operator` |
+| `createOrg(name)` | `make create-org NAME="Acme Labs"` |
+| `addAuditor` / `removeAuditor` | `make add-auditor AUDITOR=0x…` |
+| `setPolicy(approvers, required)` | `make set-policy APPROVERS="[0x…,0x…]" REQUIRED=2` |
+| `approve(payer, id)`, `activateApproved(id)`, `cancelStream(id)` | `make approve`, `make activate`, `make cancel-stream` |
+| `addToken`, `removeToken`, `setAttester` (owner) | `make add-token TOKEN=0x…`, … |
+| `status(who)` (read-only) | `make status` |
+
+Calls with an **encrypted input** (`fundVault`, `createStream`, `setThreshold`, `withdraw`) or a decrypt (`resolvePolicy`) can't run from Forge on a live chain. Encryption needs Fhenix's off-chain ZK verifier. Do those in the app (10, 11).
+
+**Testing on Anvil.** Run `anvil --fork-url $ARBITRUM_SEPOLIA_RPC_URL --port 8546`. It keeps chain id 421614 and the real TaskManager. Deploy with `--unlocked --sender <anvil account 0>`, run each interaction the same way, then **delete `deployments/421614.json` and the new `broadcast/` files**, or the frontend picks up Anvil addresses. Anvil enforces the 24 KB limit, which `forge test` doesn't here.
+
+### 3. Seeding (works with the keystore)
 
 **To do:**
 - [ ] Create `frontend/scripts/encrypt.ts` (**a** below)
@@ -107,10 +131,10 @@ Each `cast send` asks for the password, about 10 times in total. Fine for a one-
 
 **`resolvePolicy` needs no special key.** It is permissionless, and the employer UI already runs `decryptForTx` and submits it (checkpoint 10). No background keeper with a key. For the seeded 12k cUSDC stream, open the employer console once and it resolves.
 
-### 3. Fork tests: `test/forks/LiveForkTest.t.sol`
+### 4. Fork tests: `test/forks/LiveForkTest.t.sol`
 
 **To do:**
-- [ ] Create `test/forks/LiveForkTest.t.sol`. In `setUp`, skip unless the chain id is 421614 or 84532. Then run `new Deploy().deploy(...)` on the fork.
+- [ ] Create `test/forks/LiveForkTest.t.sol`. In `setUp`, skip unless the chain id is 421614 or 84532. Then run `new DeployScript().deploy(...)` on the fork.
 - [ ] Test the wiring, wrapper decimals, shielding USDC (real TaskManager) and ETH (real WETH), and plaintext payroll paths
 - [ ] Add one test that reads `deployments/<chainId>.json` and checks the live contracts. It skips until you deploy.
 - [ ] Run it on both chains: `make test-fork-all`
@@ -126,7 +150,7 @@ make test-fork CHAIN=base_sepolia
 ```
 Because of the skip in `setUp`, plain `forge test` ignores these. No `--no-match-path` needed.
 
-### 4. Export to the frontend
+### 5. Export to the frontend
 
 **To do:**
 - [ ] Create `script/export-abis.sh` that copies ABIs and addresses (below)
@@ -151,6 +175,8 @@ Because of the skip in `setUp`, plain `forge test` ignores these. No `--no-match
 - If `--sender` doesn't match the keystore address, simulation and broadcast disagree. Keep `DEPLOYER` in `.env` in sync.
 - Redeploying changes addresses. Re-run the export each time.
 - **Base fork tests and `isolate`:** each call is its own transaction, and on an OP Stack chain the sender also pays an L1 data fee. A test that sends a wallet's whole balance as `msg.value` reverts before the call runs. Deal a little extra.
+- **Contract size.** `code_size_limit = 300000` (needed for the CoFHE mocks) hides EIP-170. With the optimizer off, `ConfidentialNative` is 24,693 bytes and a live deploy fails with `CreateContractSizeLimit`. Keep the optimizer on and run `make check-sizes` (part of `make ci` and `make deploy`).
+- **Failed broadcast, file still written.** `run()` writes `deployments/<chainId>.json` while it simulates, before sending anything. `make deploy` deletes the file if the broadcast fails. If you run `forge script` by hand, delete it yourself.
 - `forge fmt` with no paths formats the whole repo. Pass file paths, or run `make fmt` on purpose.
 
 ## Commit
