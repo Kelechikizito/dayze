@@ -5,7 +5,7 @@ pragma solidity 0.8.25;
  * @title IHumanRegistry
  * @author Kelechi Kizito Ugwu
  * @notice Stores one bit per wallet: "a unique human, verified with World ID, controls this wallet".
- * @dev World ID has no onchain verifier on Arbitrum. A backend checks the proof with World's API,
+ * @dev Dayze checks the Selfie Check proof offchain: a backend verifies it with World's API,
  *      then signs an EIP-712 attestation that the worker submits here.
  */
 interface IHumanRegistry {

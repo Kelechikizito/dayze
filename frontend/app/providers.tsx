@@ -1,7 +1,7 @@
 "use client";
 
 import { CofheProvider, createCofheConfig } from "@cofhe/react";
-import { arbSepolia as cofheArbSepolia, baseSepolia as cofheBaseSepolia } from "@cofhe/sdk/chains";
+import { baseSepolia as cofheBaseSepolia } from "@cofhe/sdk/chains";
 import { PrivyProvider, usePrivy, useWallets } from "@privy-io/react-auth";
 import { WagmiProvider, createConfig, useSetActiveWallet } from "@privy-io/wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -20,13 +20,12 @@ const wagmiConfig = createConfig({
   chains: supportedChains,
   transports: {
     [supportedChains[0].id]: http(rpcUrls[supportedChains[0].id]),
-    [supportedChains[1].id]: http(rpcUrls[supportedChains[1].id]),
   },
   ssr: true,
 });
 
 const cofheConfig = createCofheConfig({
-  supportedChains: [cofheArbSepolia, cofheBaseSepolia],
+  supportedChains: [cofheBaseSepolia],
 });
 
 /**

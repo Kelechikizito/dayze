@@ -8,7 +8,7 @@ Version 0.1 (hackathon scope)
 
 ## 1. Executive Summary
 
-Dayze lets an employer ("Payer") stream salaries to workers ("Payees") **second by second** on Arbitrum, with every rate, balance and withdrawal stored as **FHE ciphertext** via Fhenix CoFHE. No one onchain, including other employees, competitors and block explorers, can see what anyone earns.
+Dayze lets an employer ("Payer") stream salaries to workers ("Payees") **second by second** on Base, with every rate, balance and withdrawal stored as **FHE ciphertext** via Fhenix CoFHE. No one onchain, including other employees, competitors and block explorers, can see what anyone earns.
 
 The employer keeps control in two ways. A designated **Audit Key** can decrypt payroll for accounting and compliance. **Encrypted approval rules** (for example, "any salary over $10k/month needs a second approver") are evaluated on ciphertext, so the policy is enforced without revealing the figure.
 
@@ -49,11 +49,11 @@ Dayze's position: the **stream is the income source the credential is built from
 - Payroll is the canonical consumer payment, and Dayze makes it **private by default**. The privacy is part of the runtime, not a setting the worker has to turn on.
 - The worker-facing product (a live private balance and a shareable income credential) is a consumer experience, not just employer back-office tooling.
 
-### 3.2 Arbitrum
+### 3.2 Base
 
-- CoFHE is live on **Arbitrum Sepolia**, and Fhenix has a strategic partnership with Offchain Labs. Dayze is built on the Arbitrum-native path for encrypted computation.
+- CoFHE is live on **Base Sepolia**, so Dayze runs on Base with real encrypted computation.
 - Low L2 fees make frequent withdrawals and per-verifier credential issuance practical. On L1, each would be a meaningful cost.
-- **Honest note:** CoFHE also runs on other EVM testnets, so Arbitrum is the best venue here rather than the only possible one. The pitch leans on the Fhenix × Arbitrum stack, not on claiming Dayze is impossible elsewhere.
+- **Honest note:** CoFHE also runs on other EVM testnets, so Base is our chosen venue rather than the only possible one.
 
 ---
 
@@ -88,7 +88,7 @@ flowchart TB
         NOTIF["Notifications\n(approval requests, credential expiry)"]
     end
 
-    subgraph Chain["Arbitrum Sepolia"]
+    subgraph Chain["Base Sepolia"]
         PAY["DayzePayroll.sol\n(streams, accrual, withdrawals)"]
         CUSDC["ConfidentialToken.sol / ConfidentialNative.sol\n(one wrapper per token, encrypted balances)"]
         POL["ApprovalPolicy.sol\n(encrypted thresholds, k-of-n approvals)"]
@@ -142,7 +142,7 @@ When presenting, say: **"zero-knowledge income check, enforced by FHE."** A port
 - **Worker's live balance:** the app unseals `monthly` once via permit and then ticks the balance locally (`monthly × elapsed / PERIOD − withdrawn`). The number moves every second on screen with zero transactions. Onchain state only changes on withdraw.
 - **Verifier page:** opens from a credential link, reads the credential's plaintext metadata from the contract, and unseals the result bit with the verifier's permit.
 
-### 6.2 Smart contracts (Arbitrum Sepolia)
+### 6.2 Smart contracts (Base Sepolia)
 
 | Contract               | Responsibility                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -220,12 +220,12 @@ When presenting, say: **"zero-knowledge income check, enforced by FHE."** A port
 
 **In scope (MVP demo path):**
 
-- `DayzePayroll`, the confidential wrappers (USDC, ARB, ETH), `ApprovalPolicy`, `AuditRegistry` and `IncomeCredential` deployed on Arbitrum Sepolia against live CoFHE.
+- `DayzePayroll`, the confidential wrappers (USDC, ARB, ETH), `ApprovalPolicy`, `AuditRegistry` and `IncomeCredential` deployed on Base Sepolia against live CoFHE.
 - One organisation, one approval policy, one auditor, two or three streams.
 - The live ticking balance in the worker app. The explorer shows nothing readable.
 - One income credential issued to a verifier address, shown valid, then shown **expiring live**.
 - Short demo timers (minutes, not months) so accrual and expiry can be shown at the demo table.
-- Foundry with `@cofhe/foundry-plugin`: a fast unit suite on CoFHE mocks (`CofheTest`) plus fork tests against the live Arbitrum Sepolia threshold network.
+- Foundry with `@cofhe/foundry-plugin`: a fast unit suite on CoFHE mocks (`CofheTest`) plus fork tests against the live Base Sepolia threshold network.
 
 **Explicitly out of scope:**
 
@@ -244,7 +244,7 @@ When presenting, say: **"zero-knowledge income check, enforced by FHE."** A port
 3. **Employer verification:** attach verified organisation identity (ENS plus a business attestation) to credentials to close the fake-employer gap.
 4. **Income from anywhere:** accept zkTLS attestations (bank or payroll portals) as additional credential sources, so workers paid partly offchain can still prove their total income.
 5. **Richer policies:** multiple approval groups with separate thresholds and budgets (PayGate-style), all evaluated on ciphertext.
-6. **Mainnet**, once CoFHE ships on Arbitrum One.
+6. **Mainnet**, once CoFHE ships on Base mainnet.
 
 ---
 
@@ -253,8 +253,8 @@ When presenting, say: **"zero-knowledge income check, enforced by FHE."** A port
 | Layer         | Choice                                                           | Why                                                                                         |
 | ------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | Frontend      | Next.js, wagmi/viem, `@cofhe/sdk`, `@cofhe/react`                | In-browser encryption and permit-based unsealing, with no plaintext on servers              |
-| Encryption    | Fhenix CoFHE (`FHE.sol`, `euint64` / `ebool`, Threshold Network) | Computation on encrypted salaries with per-handle access control; live on Arbitrum Sepolia  |
-| Contracts     | Solidity, Arbitrum Sepolia                                       | Fhenix × Arbitrum stack; cheap enough for per-verifier credentials and frequent withdrawals |
+| Encryption    | Fhenix CoFHE (`FHE.sol`, `euint64` / `ebool`, Threshold Network) | Computation on encrypted salaries with per-handle access control; live on Base Sepolia      |
+| Contracts     | Solidity, Base Sepolia                                           | CoFHE on Base; cheap enough for per-verifier credentials and frequent withdrawals |
 | Tooling       | Foundry + `@cofhe/foundry-plugin` (mocks and live fork tests)    | Fast local iteration on mocks, real threshold-network tests before the demo                 |
 | Indexing      | The Graph                                                        | Stream and credential history for dashboards; indexes handles, never values                 |
 | Notifications | Email / push                                                     | Approval requests and expiry reminders; not a security control                              |

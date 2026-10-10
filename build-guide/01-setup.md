@@ -31,7 +31,7 @@ Fhenix ships its contracts as Hardhat-style npm packages. Their docs say `npm in
 
 - Foundry (`foundryup`)
 - Node 20+, only for the frontend and the seed script's encrypt helper (08). **Not** for contracts.
-- A wallet with Arbitrum Sepolia ETH for later checkpoints
+- A wallet with Base Sepolia ETH for later checkpoints
 
 ## Steps
 
@@ -103,7 +103,7 @@ libs = ["lib"]          # was ["node_modules", "lib"]
 
 The rest is already right.
 
-- Keep `isolate = true`. Without it, ACL checks are skipped between calls, so tests pass on mocks but fail on Arbitrum Sepolia.
+- Keep `isolate = true`. Without it, ACL checks are skipped between calls, so tests pass on mocks but fail on Base Sepolia.
 - Keep `auto_detect_remappings = false`. It stops Forge from guessing remappings from the monorepo's nested `foundry.toml` files.
 
 ### 5. Keys go in the Foundry keystore, not `.env`
@@ -127,8 +127,8 @@ Later, sign with `--account dayze-deployer` (plus `--sender <address>` for `forg
 `.env` holds only non-secret config:
 
 ```bash
-ARBITRUM_SEPOLIA_RPC_URL=https://sepolia-rollup.arbitrum.io/rpc
-ARBISCAN_API_KEY=...                 # for --verify
+BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
+ARBISCAN_API_KEY=...                 # an Etherscan V2 key, for --verify on Basescan
 DEPLOYER=0x...                       # address of dayze-deployer, used as --sender
 ```
 

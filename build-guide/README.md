@@ -39,7 +39,7 @@ You write the code.
 | 06 | [06-payroll-approvals.md](06-payroll-approvals.md) | Policy check via async decrypt, Pending → Active, replay tests | 3h |
 | 07a | [07a-human-registry.md](07a-human-registry.md) | `HumanRegistry`: World ID via a backend attester | 2–3h |
 | 07 | [07-income-credential.md](07-income-credential.md) | `IncomeCredential`: issue / revoke / isValid | 2–3h |
-| 08 | [08-deploy-and-fork-tests.md](08-deploy-and-fork-tests.md) | Deploy + seed on Arbitrum Sepolia, fork tests, export ABIs | 2–3h |
+| 08 | [08-deploy-and-fork-tests.md](08-deploy-and-fork-tests.md) | Deploy + seed on Base Sepolia, fork tests, export ABIs | 2–3h |
 | 09 | [09-frontend-foundation.md](09-frontend-foundation.md) | Privy login + wagmi + CoFHE SDK in Next.js, ACPs, routing | 4h |
 | 10 | [10-employer-console.md](10-employer-console.md) | Employer onboarding, org setup, policy, auditor, fund, create stream, approvals | 5h |
 | 11 | [11-worker-app.md](11-worker-app.md) | Employee onboarding (World ID), ticking balance, withdraw, unshield, issue credential | 5h |

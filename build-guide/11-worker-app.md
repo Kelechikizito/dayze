@@ -101,7 +101,7 @@ Env: `RESEND_API_KEY`, optional `NOTIFY_FROM_EMAIL` and `NEXT_PUBLIC_APP_URL`; u
 - [ ] Withdraw works. An over-withdraw shows the "nothing moved" message.
 - [ ] Unshield round trip puts the underlying token in the wallet (native ETH for cETH)
 - [ ] Issue a credential → link copied → revoke works
-- [ ] The withdraw tx on Arbiscan shows no readable amount
+- [ ] The withdraw tx on Basescan shows no readable amount
 
 ## Pitfalls
 - Clock skew: read the latest block timestamp once and use it as an offset, not just `Date.now()`. Otherwise the balance can briefly go negative after activation.

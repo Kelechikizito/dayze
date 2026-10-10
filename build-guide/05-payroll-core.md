@@ -307,7 +307,7 @@ forge test --match-contract DayzePayrollTest -vv
 - Don't wrap `available` in a `select` against 0 to "guard" underflow. `withdrawn ≤ accrued` always holds by design. Keep it simple and prove it with the fuzz test.
 - **`expectEmit` catches the next call.** Encrypt the input **before** `vm.expectEmit`. Otherwise it matches the `createExternalEuint64` call and fails with `log != expected log`.
 - **Unset balances:** `expectPlaintext` on a handle that was never set fails. Check `FHE.isInitialized` first, or treat an unset handle as 0.
-- Gas: each FHE op is a Task Manager call. `withdraw` is ~12 ops (`euint128` accrual adds a few). Fine on Arbitrum.
+- Gas: each FHE op is a Task Manager call. `withdraw` is ~12 ops (`euint128` accrual adds a few). Fine on Base.
 
 ## Commit
 `feat: add DayzePayroll core — token allowlist, per-token vaults, streams, accrual, withdraw`

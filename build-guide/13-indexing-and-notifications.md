@@ -14,7 +14,7 @@
 
 Goal: faster dashboards than `getLogs`. A public index is safe because it only holds handles and metadata (architecture §6.4).
 
-1. `npm i -g @graphprotocol/graph-cli` → `graph init --from-contract <PAYROLL> --network arbitrum-sepolia subgraph`
+1. `npm i -g @graphprotocol/graph-cli` → `graph init --from-contract <PAYROLL> --network base-sepolia subgraph`
 2. Add data sources for `DayzePayroll`, `ApprovalPolicy` and `IncomeCredential`
 3. Entities: `Org`, `Stream` (id, payer, payee, token, status, monthlyHandle, startTime), `Withdrawal` (handle only), `Approval`, `Credential` (token, threshold, expiresAt, revoked)
 4. Deploy to Subgraph Studio. Switch frontend reads to GraphQL behind a flag. Keep `getLogs` as a fallback.

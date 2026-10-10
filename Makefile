@@ -12,8 +12,8 @@
 
 ##@ Configuration
 
-# Override any of these on the command line: make deploy CHAIN=base_sepolia
-CHAIN       ?= arbitrum_sepolia
+# Dayze runs on Base Sepolia only. CHAIN stays a variable so a future chain is one line.
+CHAIN       ?= base_sepolia
 ACCOUNT     ?= sepolia-acc
 SENDER      ?= $(shell grep -E '^DEPLOYER=' .env 2>/dev/null | cut -d= -f2)
 
@@ -22,7 +22,6 @@ SENDER      ?= $(shell grep -E '^DEPLOYER=' .env 2>/dev/null | cut -d= -f2)
 DEMO_PERIOD ?= 600
 
 # Chain ids, for the deployments/<chainId>.json files
-CHAIN_ID_arbitrum_sepolia := 421614
 CHAIN_ID_base_sepolia     := 84532
 CHAIN_ID                  := $(CHAIN_ID_$(CHAIN))
 
@@ -32,8 +31,8 @@ DEPLOY_SCRIPT := script/deployment/DeployScript.s.sol
 BROADCAST     := --rpc-url $(CHAIN) --account $(ACCOUNT) --sender $(SENDER) --broadcast
 READONLY      := --rpc-url $(CHAIN) --sender $(SENDER)
 
-# Etherscan V2 verification. The key is ARBISCAN_API_KEY in .env and covers both Arbiscan and
-# Basescan through foundry.toml's [etherscan] section, so --verify needs no key here.
+# Etherscan V2 verification on Basescan. The key is ARBISCAN_API_KEY in .env (a V2 key covers every
+# chain) and foundry.toml's [etherscan] section passes it, so --verify needs no key here.
 VERIFY        := --verify
 
 .DEFAULT_GOAL := help
@@ -51,7 +50,7 @@ check-%:
 .PHONY: check-chain
 check-chain:
 	@if [ -z "$(CHAIN_ID)" ]; then \
-		echo "error: CHAIN must be arbitrum_sepolia or base_sepolia (got '$(CHAIN)')"; \
+		echo "error: CHAIN must be base_sepolia (got '$(CHAIN)')"; \
 		exit 1; \
 	fi
 
@@ -118,32 +117,25 @@ clean: ## Delete build artifacts and the fork cache
 
 # Runs the real deploy script against a fork, then checks deployments/<chainId>.json if it exists.
 #
-#   make test-fork                    # Arbitrum Sepolia
-#   make test-fork CHAIN=base_sepolia
-#   make test-fork-all
+#   make test-fork                    # Base Sepolia
 
 .PHONY: test-fork
 test-fork: check-chain ## Run the fork tests on CHAIN
 	forge test --match-path 'test/forks/*' --fork-url $(CHAIN) -vv
 
-.PHONY: test-fork-all
-test-fork-all: ## Run the fork tests on Arbitrum Sepolia and Base Sepolia
-	$(MAKE) test-fork CHAIN=arbitrum_sepolia
-	$(MAKE) test-fork CHAIN=base_sepolia
-
 ##@ Checkpoint 8 — deploy
 
-# One script deploys and wires all ten contracts, then writes deployments/<chainId>.json.
+# One script deploys and wires all eleven contracts, then writes deployments/<chainId>.json.
 # Check, dry-run, deploy, export, re-test:
 #
 #   make check-deployer
 #   make balance
 #   make deploy-dry
-#   make deploy-arb                   # or make deploy-base, or make deploy-all for both
+#   make deploy                       # same as make deploy-base
 #   make export-abis
 #   make test-fork
 #
-# Every target here also takes CHAIN=base_sepolia. ATTESTER (07a) is read from .env and is immutable until
+# ATTESTER (07a) is read from .env and is immutable until
 # setAttester, so check it before deploying.
 
 .PHONY: check-deployer
@@ -170,26 +162,9 @@ deploy: check-chain check-SENDER check-sizes ## Deploy, wire and verify everythi
 	DEMO_PERIOD=$(DEMO_PERIOD) forge script $(DEPLOY_SCRIPT) $(BROADCAST) $(VERIFY) -vvvv || \
 		{ rm -f deployments/$(CHAIN_ID).json; echo "deploy failed: removed deployments/$(CHAIN_ID).json"; exit 1; }
 
-.PHONY: deploy-arb
-deploy-arb: ## Deploy to Arbitrum Sepolia (same as make deploy)
-	$(MAKE) deploy CHAIN=arbitrum_sepolia
-
 .PHONY: deploy-base
-deploy-base: ## Deploy to Base Sepolia (same as make deploy CHAIN=base_sepolia)
+deploy-base: ## Deploy to Base Sepolia (same as make deploy)
 	$(MAKE) deploy CHAIN=base_sepolia
-
-# Stops at the first failure, so Base never deploys after a failed Arbitrum run.
-.PHONY: deploy-all
-deploy-all: ## Deploy to Arbitrum Sepolia, then Base Sepolia, then export to the frontend
-	$(MAKE) deploy-arb
-	$(MAKE) deploy-base
-	$(MAKE) export-abis
-
-# Adds JoinRequests to a deployment made before it existed. Writes joinRequests into deployments/<chainId>.json.
-.PHONY: deploy-join-requests
-deploy-join-requests: check-chain check-SENDER check-sizes ## Add JoinRequests to CHAIN's existing deployment, then export
-	forge script script/deployment/DeployJoinRequestsScript.s.sol $(BROADCAST) $(VERIFY) -vvvv
-	$(MAKE) export-abis
 
 # Verification runs after the transactions land, so a failure here leaves deployed but
 # unverified contracts. Nothing to redeploy, just re-run this. It reads the addresses from the

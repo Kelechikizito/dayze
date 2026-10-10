@@ -41,35 +41,35 @@ The App ID is public. The **App Secret** is not. You don't need the secret until
 **To do:**
 - [ ] Create `app/providers.tsx` as a client component (code below)
 - [ ] Wrap the children in `app/layout.tsx` with `<Providers>`
-- [ ] Support both chains: Arbitrum Sepolia and Base Sepolia (`lib/chains.ts`)
-- [ ] Optional: add `NEXT_PUBLIC_ARB_SEPOLIA_RPC` and `NEXT_PUBLIC_BASE_SEPOLIA_RPC` to `frontend/.env.local`. Without them viem uses public RPCs. An Alchemy URL here ships to the browser, so restrict its allowed origins.
+- [ ] Use Base Sepolia only (`lib/chains.ts`)
+- [ ] Optional: add `NEXT_PUBLIC_BASE_SEPOLIA_RPC` to `frontend/.env.local`. Without it viem uses the public RPC. An Alchemy URL here ships to the browser, so restrict its allowed origins.
 - [ ] Add Log in / Log out buttons with `usePrivy()`
 - [ ] Pass wagmi's `publicClient` and `walletClient` to `<CofheProvider>`. It reconnects by itself when they change.
 - [ ] Add `ActiveWalletSync`: after login, set wagmi's active wallet (see **Active wallet** below)
-- [ ] Send a little Arbitrum Sepolia ETH to your test embedded wallet
+- [ ] Send a little Base Sepolia ETH to your test embedded wallet
 
 Import `createConfig` and `WagmiProvider` from **`@privy-io/wagmi`**, not from `wagmi`. The order matters: Privy → React Query → wagmi.
 ```tsx
 import { PrivyProvider } from '@privy-io/react-auth';
 import { WagmiProvider, createConfig } from '@privy-io/wagmi';
-import { arbitrumSepolia } from 'viem/chains';
+import { baseSepolia } from 'viem/chains';
 import { http } from 'wagmi';
 import { createCofheConfig, createCofheClient } from '@cofhe/sdk/web';
-import { arbSepolia as cofheArbSepolia } from '@cofhe/sdk/chains';
+import { baseSepolia as cofheBaseSepolia } from '@cofhe/sdk/chains';
 import { CofheProvider } from '@cofhe/react';
 
 const wagmiConfig = createConfig({
-  chains: [arbitrumSepolia],
-  transports: { [arbitrumSepolia.id]: http(process.env.NEXT_PUBLIC_ARB_SEPOLIA_RPC) },
+  chains: [baseSepolia],
+  transports: { [baseSepolia.id]: http(process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC) },
 });
-const cofheClient = createCofheClient(createCofheConfig({ supportedChains: [cofheArbSepolia] }));
+const cofheClient = createCofheClient(createCofheConfig({ supportedChains: [cofheBaseSepolia] }));
 
 <PrivyProvider
   appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID!}
   config={{
     loginMethods: ['email', 'google', 'wallet'],
-    defaultChain: arbitrumSepolia,
-    supportedChains: [arbitrumSepolia],
+    defaultChain: baseSepolia,
+    supportedChains: [baseSepolia],
     embeddedWallets: { ethereum: { createOnLogin: 'users-without-wallets' } },
   }}
 >
@@ -86,7 +86,7 @@ Use Privy's `login()` / `logout()` from `usePrivy()` for the buttons. After logi
 
 **Active wallet.** If the browser also has MetaMask, Privy can log in and create the embedded wallet, but leave wagmi with **no account**. Then `useAccount()` is empty and CoFHE never connects. Fix it with a small component inside `WagmiProvider`: once `useWallets()` is ready and `useAccount().address` is empty, call `useSetActiveWallet().setActiveWallet(...)` from `@privy-io/wagmi` with the embedded wallet (`walletClientType === "privy"`), or else the first wallet.
 
-**Gas:** an embedded wallet starts empty. For the demo, send each new wallet a little Arbitrum Sepolia ETH from a faucet or your deployer. Privy's gas sponsorship is an option later. Check that it supports Arbitrum Sepolia before you plan on it.
+**Gas:** an embedded wallet starts empty. For the demo, send each new wallet a little Base Sepolia ETH from a faucet or your deployer. Privy's gas sponsorship is an option later. Check that it supports Base Sepolia before you plan on it.
 
 **SSR:** `@cofhe/sdk/web` lazy-loads `tfhe` (WASM). Use CoFHE only in client components. On the server it falls back to a no-op storage, so static pages still prerender.
 
@@ -173,7 +173,7 @@ The visual style is `frontend/DESIGN.md` ("Editorial ink on cream paper"). Its t
 ```bash
 cd frontend && npm run dev
 ```
-- [ ] Sign up with email → an embedded wallet appears on Arbitrum Sepolia
+- [ ] Sign up with email → an embedded wallet appears on Base Sepolia
 - [ ] Connect an external wallet (MetaMask) instead. Wrong-network prompt works.
 - [ ] Create an ACP with the **embedded** wallet. The EIP-712 signature works.
 - [ ] A debug button encrypts `42` (like `HelloFHE` input) with no errors. Console shows handle + proof. The first run takes about 15s while it downloads the FHE keys.

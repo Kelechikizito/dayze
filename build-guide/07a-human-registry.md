@@ -45,7 +45,7 @@ Do these in order. The sections after **Steps** have the code and details each t
 - [ ] Commit the routes separately from the contract
 
 ## Why a backend attester?
-World ID has no onchain verifier on Arbitrum. Its router only lives on World Chain, Ethereum, Base, Optimism and Polygon. So:
+Dayze verifies Selfie Check proofs with World's cloud API, not an onchain verifier. So:
 1. The worker makes a proof in World App (IDKit).
 2. Our Next.js backend checks it with World's API (`POST https://developer.world.org/api/v4/verify/{rp_id}`).
 3. If it passes, the backend signs an EIP-712 **attestation**: "this wallet is a human, with this nullifier".

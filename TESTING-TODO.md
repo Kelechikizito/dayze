@@ -4,13 +4,13 @@ Manual checks that are waiting on you. Tick them off as you go.
 
 ## Before testing: wallet setup
 
-- [ ] **Fund the embedded wallet.** Send 0.005 ETH on Arbitrum Sepolia from your MetaMask/deployer wallet (`0xDBC2…`) to the embedded wallet `0x06ce0d513728d32f36d90334A33AA48272e005Df`:
+- [ ] **Fund the embedded wallet.** Send 0.005 ETH on Base Sepolia from your MetaMask/deployer wallet (`0xDBC2…`) to the embedded wallet `0x06ce0d513728d32f36d90334A33AA48272e005Df`:
   ```bash
   cast send 0x06ce0d513728d32f36d90334A33AA48272e005Df --value 0.005ether \
-    --account sepolia-acc --rpc-url arbitrum_sepolia
+    --account sepolia-acc --rpc-url base_sepolia
   ```
-- [ ] **Fix MetaMask's RPC** (if you test with MetaMask). It was failing with `RPC 0x66eee Custom eth_gasPrice: Request is being rate limited`. MetaMask → Networks → Arbitrum Sepolia → Edit → Add RPC URL → your Alchemy Arbitrum Sepolia URL → set as default.
-- [ ] **Optional:** add `NEXT_PUBLIC_ARB_SEPOLIA_RPC` and `NEXT_PUBLIC_BASE_SEPOLIA_RPC` to `frontend/.env.local`, then restart `npm run dev`. The embedded wallet and the app's reads then use your RPC instead of public ones. Use a separate Alchemy app with allowed origins set to `localhost:3000` and your Vercel domain.
+- [ ] **Fix MetaMask's RPC** (if you test with MetaMask). If sends fail with "rate limited", MetaMask → Networks → Base Sepolia → Edit → Add RPC URL → your Alchemy Base Sepolia URL → set as default.
+- [ ] **Optional:** add `NEXT_PUBLIC_BASE_SEPOLIA_RPC` to `frontend/.env.local`, then restart `npm run dev`. The embedded wallet and the app's reads then use your RPC instead of public ones. Use a separate Alchemy app with allowed origins set to `localhost:3000` and your Vercel domain.
 
 ## World ID setup (before testing Selfie Check)
 
@@ -44,7 +44,6 @@ Once these pass: tick 08, 09 and 10 in `build-guide/README.md`.
 
 ## Join requests and email (new)
 
-- [ ] Add `JoinRequests` to the live Arbitrum deployment: `make deploy-join-requests` (keystore password; about 0.001 ETH). It writes `joinRequests` into `deployments/421614.json` and re-exports the addresses.
 - [ ] Email: create a free Resend account (resend.com) → API key → add `RESEND_API_KEY=…` to `frontend/.env.local`, then restart `npm run dev`. Without a verified domain, Resend's test sender (`onboarding@resend.dev`) only delivers to **your own Resend account's email**, so test with an employee logged in with that email. For the demo, verify a domain and set `NOTIFY_FROM_EMAIL="Dayze <pay@yourdomain>"`.
 - [ ] Optional: `NEXT_PUBLIC_APP_URL=https://<your vercel url>` so email links point at the deployed app (defaults to the current origin).
 - [ ] Employee: open the invite link → step 4 "Ask <org> to pay you" → approve the tx → "✓ Request sent…". The box below shows where pay emails go, or an "Add an email" button for wallet logins.
@@ -64,7 +63,7 @@ Use a second wallet as the employee: a different Google/email login in another b
 - [ ] Unlock (ACP signature) → copy the address → the employer starts a stream for it → the employee page moves to `/worker` by itself.
 - [ ] `/worker`: click "Show my pay" once. The balance ticks smoothly, with 6 decimals and "Updating live. 0 transactions."
 - [ ] Withdraw a little → "Withdrew X cUSDC". Withdraw more than available → the "nothing moved" message, with no revert.
-- [ ] The withdraw tx on Arbiscan shows no readable amount. Screenshot it for the pitch.
+- [ ] The withdraw tx on Basescan shows no readable amount. Screenshot it for the pitch.
 - [ ] Cash out: confirm the public-amount warning → Unshield → Decrypt → Claim → USDC lands in the wallet (or ETH for cETH).
 - [ ] Issue an income proof (5-minute expiry) → copy the link / QR → the countdown runs → Revoke works.
 
@@ -84,11 +83,10 @@ Built: it's step 2 of the employee onboarding (`/onboarding/employee`).
 
 ## Base Sepolia
 
-- [ ] Get Base Sepolia ETH (Alchemy faucet, Coinbase developer faucet, or the Superchain faucet).
-- [ ] `make deploy-base`, then `make export-abis` and `make test-fork CHAIN=base_sepolia`.
+- [x] Deployed, verified and fork-tested (all 11 contracts, `deployments/84532.json`).
 
 ## Before the demo (checkpoint 14)
 
-- [ ] Every new embedded wallet starts with 0 ETH. Either top up each demo wallet, or turn on Privy gas sponsorship (check it supports Arbitrum Sepolia first).
+- [ ] Every new embedded wallet starts with 0 ETH. Either top up each demo wallet, or turn on Privy gas sponsorship (check it supports Base Sepolia first).
 - [ ] Set `NEXT_PUBLIC_WLD_ENVIRONMENT` in Vercel: `sandbox` to demo with the sandbox app, `production` for real World IDs.
 - [ ] Delete `/debug` or keep it unlinked.

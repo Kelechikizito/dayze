@@ -1,9 +1,9 @@
-# 08 — Deploy to Arbitrum Sepolia + Base Sepolia, fork tests
+# 08 — Deploy to Base Sepolia, fork tests
 
 ## Goal
-All contracts live on Arbitrum Sepolia and Base Sepolia with real CoFHE. Demo data seeded. Addresses and ABIs exported to the frontend.
+All contracts live on Base Sepolia with real CoFHE. Demo data seeded. Addresses and ABIs exported to the frontend.
 
-**Two chains, one script.** CoFHE runs on both testnets, and the TaskManager sits at the same address on each. Everything below works per chain. Pick the chain with `CHAIN=arbitrum_sepolia` (default) or `CHAIN=base_sepolia` in the `make` targets. CoFHE has no mainnet chains yet, so mainnet RPCs aren't needed.
+**One chain.** Dayze runs on Base Sepolia only. `CHAIN` defaults to `base_sepolia` in the `make` targets. CoFHE has no mainnet chains yet, so mainnet RPCs aren't needed.
 
 ## Steps
 
@@ -18,7 +18,7 @@ All contracts live on Arbitrum Sepolia and Base Sepolia with real CoFHE. Demo da
 - [ ] In `foundry.toml`: turn on the optimizer (`optimizer = true`, `optimizer_runs = 200`). Check every deployed contract is under 24,576 bytes: `make check-sizes`.
 - [ ] Check your keystore matches `DEPLOYER` (`make check-deployer`) and has gas (`make balance`)
 - [ ] Dry run (`make deploy-dry`). Then broadcast (`make deploy`). Repeat with `CHAIN=base_sepolia`.
-- [ ] Check every contract is verified on Arbiscan and Basescan
+- [ ] Check every contract is verified on Basescan
 
 Deploy order and wiring:
 ```text
@@ -36,11 +36,11 @@ payroll.setCredential(credential)
 payroll.addToken(cusdc), addToken(carb), addToken(ceth)
 ```
 - Read `PERIOD` from env (`DEMO_PERIOD=600`). Default: 30 days.
-- WETH: Arbitrum Sepolia `0x980B62Da83eFf3D4576C647993b0c1D7faf17c73`, Base Sepolia `0x4200000000000000000000000000000000000006` (OP Stack predeploy). Check both with `cast call <weth> "symbol()(string)"`.
+- WETH: Base Sepolia `0x4200000000000000000000000000000000000006` (OP Stack predeploy). Check it with `cast call <weth> "symbol()(string)"`.
 - Read `ATTESTER` from env. It's the **address** of the backend attester key (07a), not the key.
 - To add a real ERC20 later: deploy one more `ConfidentialToken` and call `addToken`. No payroll redeploy.
 - Write addresses to `deployments/<chainId>.json` with `vm.writeJson`. A dry run must not write: fake addresses on disk end up in the frontend.
-- Verification: one **Etherscan V2** key covers Arbiscan and Basescan. An old Arbiscan-only key won't verify on Base. Check it with `curl "https://api.etherscan.io/v2/api?chainid=84532&module=account&action=balance&address=$DEPLOYER&tag=latest&apikey=$KEY"`.
+- Verification: use an **Etherscan V2** key (it's stored as `ARBISCAN_API_KEY`). An old Arbiscan-only key won't verify on Base. Check it with `curl "https://api.etherscan.io/v2/api?chainid=84532&module=account&action=balance&address=$DEPLOYER&tag=latest&apikey=$KEY"`.
 
 **No private key in the script.** Use `vm.startBroadcast()` with no argument. Forge signs with the `--account` you pass on the command line:
 
@@ -57,13 +57,9 @@ function run() external {
 
 ```bash
 make check-deployer                 # keystore address == DEPLOYER
-make deploy-arb                     # Arbitrum Sepolia
-make deploy-base                    # Base Sepolia
-make deploy-all                     # both, then export to the frontend
+make deploy-base                    # Base Sepolia (same as make deploy)
 ```
-`deploy-arb` and `deploy-base` are shortcuts for `make deploy CHAIN=…`.
-
-**Adding a contract to a live deployment.** `JoinRequests` came after the first Arbitrum deploy. `make deploy-join-requests` runs `script/deployment/DeployJoinRequestsScript.s.sol`: it reads `payroll` from `deployments/<chainId>.json`, deploys `JoinRequests(payroll)`, writes `joinRequests` back into the same file (only on `--broadcast`), and re-exports to the frontend. Payroll isn't redeployed. Fresh deployments get it from `DeployScript`. `deploy-all` stops at the first failure, so Base never deploys after a failed Arbitrum run.
+Run it in your own terminal: it asks for the keystore password, which a non-interactive shell can't give.
 `make deploy` runs:
 ```bash
 DEMO_PERIOD=600 forge script script/deployment/DeployScript.s.sol \
@@ -92,7 +88,7 @@ Forge asks for the keystore password. `--sender` must match the keystore address
 
 Calls with an **encrypted input** (`fundVault`, `createStream`, `setThreshold`, `withdraw`) or a decrypt (`resolvePolicy`) can't run from Forge on a live chain. Encryption needs Fhenix's off-chain ZK verifier. Do those in the app (10, 11).
 
-**Testing on Anvil.** Run `anvil --fork-url $ARBITRUM_SEPOLIA_RPC_URL --port 8546`. It keeps chain id 421614 and the real TaskManager. Deploy with `--unlocked --sender <anvil account 0>`, run each interaction the same way, then **delete `deployments/421614.json` and the new `broadcast/` files**, or the frontend picks up Anvil addresses. Anvil enforces the 24 KB limit, which `forge test` doesn't here.
+**Testing on Anvil.** Run `anvil --fork-url $BASE_SEPOLIA_RPC_URL --port 8546`. It keeps chain id 84532 and the real TaskManager. Deploy with `--unlocked --sender <anvil account 0>`, run each interaction the same way, then **restore `deployments/84532.json` and delete the new `broadcast/` files**, or the frontend picks up Anvil addresses. Anvil enforces the 24 KB limit, which `forge test` doesn't here.
 
 ### 3. Seeding (works with the keystore)
 
@@ -120,7 +116,7 @@ On a live chain, encryption uses a ZK proof checked by the CoFHE verifier, not a
 ```bash
 read -r H P < <(cd frontend && npx tsx scripts/encrypt.ts --value 10000000000 --account $DEPLOYER --contract $POLICY)
 cast send $POLICY "setThreshold(address,bytes32,bytes)" $CUSDC $H $P \
-  --account dayze-deployer --rpc-url arbitrum_sepolia
+  --account sepolia-acc --rpc-url base_sepolia
 ```
 The seed does this:
 - create the org
@@ -138,10 +134,10 @@ Each `cast send` asks for the password, about 10 times in total. Fine for a one-
 ### 4. Fork tests: `test/forks/LiveForkTest.t.sol`
 
 **To do:**
-- [ ] Create `test/forks/LiveForkTest.t.sol`. In `setUp`, skip unless the chain id is 421614 or 84532. Then run `new DeployScript().deploy(...)` on the fork.
+- [ ] Create `test/forks/LiveForkTest.t.sol`. In `setUp`, skip unless the chain id is 84532. Then run `new DeployScript().deploy(...)` on the fork.
 - [ ] Test the wiring, wrapper decimals, shielding USDC (real TaskManager) and ETH (real WETH), and plaintext payroll paths
 - [ ] Add one test that reads `deployments/<chainId>.json` and checks the live contracts. It skips until you deploy.
-- [ ] Run it on both chains: `make test-fork-all`
+- [ ] Run it: `make test-fork`
 
 Goal: prove the contracts work with the **real** Task Manager, not just mocks.
 - Skip them by default locally: `forge test --no-match-path "test/forks/*"`.
@@ -149,8 +145,7 @@ Goal: prove the contracts work with the **real** Task Manager, not just mocks.
 - Can't test: decrypting in Forge. The threshold network is off-chain. Do real end-to-end decrypts in the frontend (or with `decryptForTx` in `encrypt.ts`, no key needed). Treat that as your integration test.
 
 ```bash
-make test-fork                      # Arbitrum Sepolia
-make test-fork CHAIN=base_sepolia
+make test-fork                      # Base Sepolia
 ```
 Because of the skip in `setUp`, plain `forge test` ignores these. No `--no-match-path` needed.
 
@@ -166,15 +161,15 @@ Because of the skip in `setUp`, plain `forge test` ignores these. No `--no-match
 - Merge every `deployments/*.json` into `frontend/lib/contracts/addresses.ts`, keyed by chain id.
 
 ## ✅ Checkpoint
-- [ ] All contracts (3 wrappers, 2 mock tokens, 5 core contracts + library) deployed and verified on Arbiscan and Basescan
+- [ ] All contracts (3 wrappers, 2 mock tokens, 5 core contracts + library) deployed and verified on Basescan
 - [ ] `s_supportedTokens` is true for all three wrappers
 - [ ] Seed done: 1 org, 1 policy, 1 auditor, 4 streams (one `Pending`)
-- [ ] On Arbiscan, a `withdraw` tx shows **no readable amount**. Screenshot it for the pitch.
+- [ ] On Basescan, a `withdraw` tx shows **no readable amount**. Screenshot it for the pitch.
 - [ ] Fork tests pass on both chains
 - [ ] `frontend/lib/contracts/` has addresses + typed ABIs
 
 ## Pitfalls
-- Gas estimates for FHE calls on Arbitrum Sepolia can be low. Raise the gas limit if txs run out.
+- Gas estimates for FHE calls on Base Sepolia can be low. Raise the gas limit if txs run out.
 - Never use `vm.envUint("PRIVATE_KEY")` or `--private-key`. If a tutorial does, swap in `vm.startBroadcast()` + `--account`.
 - If `--sender` doesn't match the keystore address, simulation and broadcast disagree. Keep `DEPLOYER` in `.env` in sync.
 - Redeploying changes addresses. Re-run the export each time.

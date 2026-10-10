@@ -26,7 +26,7 @@ import {JoinRequests} from "src/JoinRequests.sol";
 /**
  * @title DeployScript
  * @author Kelechi Kizito Ugwu
- * @notice Deploys and wires every Dayze contract on Arbitrum Sepolia or Base Sepolia.
+ * @notice Deploys and wires every Dayze contract on Base Sepolia.
  * @dev Signer comes from `--account`, never from a private key in env. Writes `deployments/<chainId>.json`.
  *      Env: `ATTESTER` (required, an address), `DEMO_PERIOD` (optional, seconds; default 30 days),
  *      `WETH` (optional; defaults to the chain's canonical WETH).
@@ -37,7 +37,7 @@ contract DeployScript is Script {
                                  ERRORS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Thrown on a chain with no known WETH and no `WETH` env var
+    /// @notice Thrown on any chain but Base Sepolia, unless `WETH` is set in env
     error DeployScript__UnknownWeth(uint256 chainId);
 
     /*//////////////////////////////////////////////////////////////
@@ -62,9 +62,6 @@ contract DeployScript is Script {
     /*//////////////////////////////////////////////////////////////
                             STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
-
-    /// @notice Canonical WETH on Arbitrum Sepolia
-    address internal constant WETH_ARBITRUM_SEPOLIA = 0x980B62Da83eFf3D4576C647993b0c1D7faf17c73;
 
     /// @notice Canonical WETH on Base Sepolia (OP Stack predeploy)
     address internal constant WETH_BASE_SEPOLIA = 0x4200000000000000000000000000000000000006;
@@ -128,7 +125,6 @@ contract DeployScript is Script {
     /// @param chainId The chain
     /// @return The WETH address
     function wethFor(uint256 chainId) public pure returns (address) {
-        if (chainId == 421614) return WETH_ARBITRUM_SEPOLIA;
         if (chainId == 84532) return WETH_BASE_SEPOLIA;
         revert DeployScript__UnknownWeth(chainId);
     }

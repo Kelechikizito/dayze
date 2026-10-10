@@ -50,7 +50,7 @@ If payroll paid in plain ERC20s, every withdrawal would be a public transfer. An
 | Any ERC20 (USDC, ARB, WETH, …) | `FHERC20ERC20Wrapper` | `shield(to, amount)` (`safeTransferFrom` inside) | `unshield(from, to, amount)` → offchain decrypt → `claimUnshielded(id, value, proof)` (`safeTransfer` inside) |
 | Native ETH | `FHERC20NativeWrapper` | `shieldNative(to)` payable, or `shieldWrappedNative(to, value)` from WETH | same, pays out native ETH |
 
-On Arbitrum the native currency is **ETH**. ARB is an ERC20, so it uses `FHERC20ERC20Wrapper`.
+On Base the native currency is **ETH**. The demo ARB token is an ERC20, so it uses `FHERC20ERC20Wrapper`.
 
 All wrappers share one confidential interface (`IFHERC20`). Payroll codes against it:
 
@@ -127,7 +127,7 @@ contract ConfidentialNative is FHERC20NativeWrapper {
 ### Mocks: import them, don't write them
 `fhenix-confidential-contracts/test/ERC20_Harness.sol` has both:
 - `ERC20_Harness(name, symbol, decimals)`: ERC20 with open `mint`. Deploy it twice in tests: 6-decimal "USDC" and 18-decimal "ARB". This tests both decimal paths. On testnet, deploying your own is easier than finding a faucet.
-- `WETH_Harness`: `deposit`, `withdraw`, 18 decimals. Fits `IWETH`. On Arbitrum Sepolia, use the real WETH. Look up its address on Arbiscan. Don't trust a hardcoded one.
+- `WETH_Harness`: `deposit`, `withdraw`, 18 decimals. Fits `IWETH`. On Base Sepolia, use the real WETH (the `0x4200…0006` predeploy). Look up its address on Basescan. Don't trust a hardcoded one.
 
 OZ's `ERC20Mock` doesn't fit: its decimals are fixed at 18, and OZ has no WETH mock.
 

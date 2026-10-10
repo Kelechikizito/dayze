@@ -25,7 +25,7 @@ import {DeployScript} from "script/deployment/DeployScript.s.sol";
 /**
  * @title LiveForkTest
  * @author Kelechi Kizito Ugwu
- * @notice Runs the deploy script against the real CoFHE TaskManager on an Arbitrum Sepolia or Base Sepolia fork.
+ * @notice Runs the deploy script against the real CoFHE TaskManager on a Base Sepolia fork.
  * @dev Skips itself on any other chain, so plain `forge test` ignores it. Run with:
  *      `forge test --match-path "test/forks/*" --fork-url $BASE_SEPOLIA_RPC_URL -vv`
  *      Can't test decryption or encrypted inputs here: both need Fhenix's off-chain services.
@@ -57,7 +57,7 @@ contract LiveForkTest is Test {
 
     /// @notice Skips off-fork; otherwise deploys everything with the real deploy script
     function setUp() public {
-        if (block.chainid != 421614 && block.chainid != 84532) {
+        if (block.chainid != 84532) {
             vm.skip(true);
             return;
         }

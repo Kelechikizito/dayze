@@ -55,7 +55,7 @@ export function ChainVsYou() {
 
   return (
     <div ref={ref} className="grid gap-4 md:grid-cols-2">
-      <Ledger title="Arbiscan" caption="What the chain shows" revealed={false} shown={count} />
+      <Ledger title="Basescan" caption="What the chain shows" revealed={false} shown={count} />
       <Ledger title="Alice's app" caption="What Alice sees" revealed shown={count} />
     </div>
   );

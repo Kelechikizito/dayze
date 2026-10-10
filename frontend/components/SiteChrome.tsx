@@ -56,7 +56,7 @@ export function SiteFooter() {
         <div className="flex flex-col gap-3">
           <span className="font-classic text-heading">Dayze</span>
           <p className="max-w-sm text-caption text-mid-grey">
-            Confidential payroll on Arbitrum and Base testnets. Built with Fhenix CoFHE. Not audited; don&apos;t use
+            Confidential payroll on Base Sepolia. Built with Fhenix CoFHE. Not audited; don&apos;t use
             real funds.
           </p>
         </div>

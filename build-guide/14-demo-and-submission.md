@@ -22,9 +22,9 @@
 - [ ] Time each part. Cut words, not steps, if you run long.
 - [ ] Record a backup video
 
-1. **Problem (20s):** show a normal USDC payroll tx on Arbiscan. "Everyone can see this salary, forever."
+1. **Problem (20s):** show a normal USDC payroll tx on Basescan. "Everyone can see this salary, forever."
 2. **Employer (40s):** create the 12k cUSDC stream → "Checking policy privately…" → Pending → second wallet approves → Active. "The threshold is encrypted. The contract compared two numbers it can't read."
-3. **Worker (40s):** balance ticking. "Zero transactions." Withdraw. Open the tx on Arbiscan: **nothing readable**.
+3. **Worker (40s):** balance ticking. "Zero transactions." Withdraw. Open the tx on Basescan: **nothing readable**.
 4. **Credential (50s):** landlord asks for ≥ $3k. Worker issues with a 2-minute expiry → sends link → landlord sees ✅ and "issued by a verified human". Wrong wallet can't unseal. Wait → banner flips to **Expired** live.
 5. **Auditor (20s):** unseal + CSV, made in the browser.
 6. **Close (10s):** "A salary never exists in plaintext onchain. Proving income reveals one bit, to one person, for a limited time."
@@ -45,10 +45,10 @@ Rehearse on live testnet at least twice. Decrypt time varies. Record a backup vi
   - auditor access is sticky
   - credentials are "as of issuance"
   - Dayze proves what a contract pays, not who the employer is
-  - World ID is checked by our backend, because World ID has no onchain verifier on Arbitrum. The attester key can mark wallets as human. It can't read salaries or move funds.
+  - World ID Selfie Check is verified by our backend with World's API. The attester key can mark wallets as human. It can't read salaries or move funds.
 - Privy: workers and landlords sign up with email. The embedded wallet signs CoFHE permits like any other wallet. Privy never sees a salary, because amounts are encrypted in the browser.
 - **Roadmap slide: payroll agents.** An employer gives an AI agent limited access to their wallet through Privy: allowed contracts, a cap on public deposits, an expiry. Be clear about the limit: Privy can't read encrypted amounts, so caps on salaries stay onchain in `ApprovalPolicy`. If you built 15, demo it here instead.
-- Arbitrum: CoFHE is live on Arbitrum Sepolia, and Fhenix partners with Offchain Labs. Arbitrum is the best home, not the only one.
+- Base: CoFHE is live on Base Sepolia. Base is our chosen home, not the only possible one.
 
 ## 4. Hardening pass
 - [ ] `/solidity-auditor` on `src/`, fix findings
@@ -60,8 +60,8 @@ Rehearse on live testnet at least twice. Decrypt time varies. Record a backup vi
 
 ## 5. Submission
 - [ ] README via `/hackathon-readme`. It mines deployments and tx hashes for evidence.
-- [ ] Include: deployed + verified addresses, the "unreadable withdraw" Arbiscan link, demo video, architecture diagram (`architecture.md` §5), limits section
-- [ ] Live frontend on Vercel, pointing at Arbitrum Sepolia
+- [ ] Include: deployed + verified addresses, the "unreadable withdraw" Basescan link, demo video, architecture diagram (`architecture.md` §5), limits section
+- [ ] Live frontend on Vercel, pointing at Base Sepolia
 - [ ] Tick every box in [README.md](README.md#progress)
 
 ## Commit
