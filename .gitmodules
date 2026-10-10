@@ -16,3 +16,6 @@
 [submodule "lib/cofhesdk"]
 	path = lib/cofhesdk
 	url = https://github.com/FhenixProtocol/cofhesdk
+[submodule "lib/foundry-devops"]
+	path = lib/foundry-devops
+	url = https://github.com/Cyfrin/foundry-devops
