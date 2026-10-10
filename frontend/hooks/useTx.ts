@@ -71,19 +71,23 @@ export function useTx() {
         const params = await build();
         setStage("signing");
 
-        // Estimate gas with our RPC, so the wallet's own (often rate-limited) RPC does less.
-        // FHE calls fan out to the TaskManager, and estimates on Arbitrum can come in low: add 50%.
-        // Don't pass fee fields: MetaMask can treat Arbitrum Sepolia as non-EIP-1559 and rejects
-        // maxFeePerGas with "params specify an EIP-1559 transaction". Each wallet prices it itself.
-        const estimate = await publicClient
-          .estimateContractGas({ ...(params as object), account: address } as never)
-          .catch((e) => {
+        // Estimate gas and price it with our RPC, so the wallet's own (often rate-limited) RPC does less.
+        // - Gas: FHE calls fan out to the TaskManager, and estimates can come in low: +50%.
+        // - Price: a legacy gasPrice with 25% headroom. MetaMask can treat Base Sepolia as
+        //   non-EIP-1559: it rejects maxFeePerGas outright, and its own price has no headroom, so a base
+        //   fee tick fails the send ("max fee per gas less than block base fee"). Every wallet accepts a
+        //   legacy gasPrice.
+        const [estimate, gasPrice] = await Promise.all([
+          publicClient.estimateContractGas({ ...(params as object), account: address } as never).catch((e) => {
             console.warn("[dayze] gas estimate failed; the wallet will estimate", e);
             return undefined;
-          });
+          }),
+          publicClient.getGasPrice().catch(() => undefined),
+        ]);
         const txHash = await writeContractAsync({
           ...params,
           ...(estimate ? { gas: (estimate * BigInt(3)) / BigInt(2) } : {}),
+          ...(gasPrice ? { type: "legacy", gasPrice: (gasPrice * BigInt(5)) / BigInt(4) } : {}),
         } as never); // see WriteParams: wagmi passes `value` through for payable functions
         setHash(txHash);
 
