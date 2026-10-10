@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createPublicClient, http, isAddress, isHex, type Address } from "viem";
+import { createPublicClient, http, isAddress, isAddressEqual, isHex, recoverMessageAddress, type Address } from "viem";
 import { supportedChains, rpcUrls } from "@/lib/chains";
 import { DayzePayrollAbi } from "@/lib/contracts/abis";
 import { addresses } from "@/lib/contracts/addresses";
@@ -47,9 +47,15 @@ export async function POST(request: Request) {
   if (!chain || !payroll) return fail("Dayze isn't deployed on this chain");
   const client = createPublicClient({ chain, transport: http(rpcUrls[chain.id]) });
 
-  // 1. Signed by the org's wallet (verifyMessage handles smart wallets too, via ERC-1271)
+  // 1. Signed by the org's wallet (verifyMessage handles smart wallets too, via ERC-1271).
+  //    A gas-sponsored embedded wallet is an EOA upgraded with EIP-7702: it has code now, so ERC-1271 runs
+  //    against the delegate and can fail. The EOA's own key still controls the address, so accept an ecrecover match.
   const message = inviteMessage(org, email, chainId, issuedAt);
-  const valid = await client.verifyMessage({ address: org, message, signature }).catch(() => false);
+  const valid =
+    (await client.verifyMessage({ address: org, message, signature }).catch(() => false)) ||
+    (await recoverMessageAddress({ message, signature })
+      .then((signer) => isAddressEqual(signer, org))
+      .catch(() => false));
   if (!valid) return fail("The signature doesn't match this org");
 
   // 2. The signer really is an employer

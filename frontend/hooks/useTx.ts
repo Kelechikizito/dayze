@@ -1,8 +1,9 @@
 "use client";
 
+import { useSendTransaction, useWallets } from "@privy-io/react-auth";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
-import type { Hex, TransactionReceipt } from "viem";
+import { encodeFunctionData, type Hex, type TransactionReceipt } from "viem";
 import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import type { TxStage } from "@/components/TxStatus";
 
@@ -11,10 +12,29 @@ type WriteParams = Omit<Parameters<ReturnType<typeof useWriteContract>["writeCon
   value?: bigint;
 };
 
+/**
+ * Privy pays gas for embedded wallets (Fee sponsorship in the Privy dashboard, chain enabled there,
+ * "Allow transactions from the client" on). Set NEXT_PUBLIC_SPONSOR_GAS=false to make users pay again.
+ */
+const SPONSOR_GAS = process.env.NEXT_PUBLIC_SPONSOR_GAS !== "false";
+
+/** Whether Privy pays gas for the active wallet: only embedded wallets; MetaMask and others pay their own */
+export function useGasSponsored(): boolean {
+  const { address } = useAccount();
+  const { wallets } = useWallets();
+  return (
+    SPONSOR_GAS &&
+    wallets.some((w) => w.walletClientType === "privy" && w.address.toLowerCase() === address?.toLowerCase())
+  );
+}
+
 /** A readable one-line error from viem, wallet or SDK errors */
 export function shortError(e: unknown): string {
   // The most common testnet failure: a new embedded wallet with no ETH for gas
   const text = fullText(e);
+  if (/sponsor|paymaster|credits/i.test(text)) {
+    return `Gas sponsorship failed. Check Fee sponsorship in the Privy dashboard. (${text.trim().split("\n")[0].slice(0, 160)})`;
+  }
   if (/insufficient funds/i.test(text)) {
     return "Your wallet has no ETH for gas. Send it a little testnet ETH (0.005 is plenty), then try again.";
   }
@@ -50,9 +70,11 @@ function fullText(e: unknown): string {
  * On success, every contract read is refetched so the UI shows the new state.
  */
 export function useTx() {
-  const { address } = useAccount();
+  const { address, chainId } = useAccount();
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
+  const { sendTransaction: sendWithPrivy } = useSendTransaction();
+  const sponsored = useGasSponsored();
   const queryClient = useQueryClient();
   const [stage, setStage] = useState<TxStage>("idle");
   const [error, setError] = useState<string>();
@@ -84,11 +106,28 @@ export function useTx() {
           }),
           publicClient.getGasPrice().catch(() => undefined),
         ]);
-        const txHash = await writeContractAsync({
-          ...params,
-          ...(estimate ? { gas: (estimate * BigInt(3)) / BigInt(2) } : {}),
-          ...(gasPrice ? { type: "legacy", gasPrice: (gasPrice * BigInt(5)) / BigInt(4) } : {}),
-        } as never); // see WriteParams: wagmi passes `value` through for payable functions
+        const gas = estimate ? (estimate * BigInt(3)) / BigInt(2) : undefined;
+        let txHash: Hex;
+        if (sponsored) {
+          // Privy upgrades the wallet with EIP-7702 and a paymaster pays: same address, no ETH needed
+          const p = params as unknown as { address: Hex; abi: never; functionName: string; args?: unknown[]; value?: bigint };
+          ({ hash: txHash } = await sendWithPrivy(
+            {
+              to: p.address,
+              data: encodeFunctionData({ abi: p.abi, functionName: p.functionName, args: p.args } as never),
+              value: p.value,
+              chainId,
+              gasLimit: gas,
+            },
+            { sponsor: true, address },
+          ));
+        } else {
+          txHash = await writeContractAsync({
+            ...params,
+            ...(gas ? { gas } : {}),
+            ...(gasPrice ? { type: "legacy", gasPrice: (gasPrice * BigInt(5)) / BigInt(4) } : {}),
+          } as never); // see WriteParams: wagmi passes `value` through for payable functions
+        }
         setHash(txHash);
 
         setStage("confirming");
@@ -105,7 +144,7 @@ export function useTx() {
         return undefined;
       }
     },
-    [address, publicClient, writeContractAsync, queryClient],
+    [address, chainId, publicClient, writeContractAsync, sendWithPrivy, sponsored, queryClient],
   );
 
   const reset = useCallback(() => {

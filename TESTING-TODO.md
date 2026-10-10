@@ -4,6 +4,7 @@ Manual checks that are waiting on you. Tick them off as you go.
 
 ## Before testing: wallet setup
 
+- [ ] **Gas sponsorship.** Privy dashboard → Fee sponsorship: **Sponsor gas fees** on, **Base Sepolia** added, **Allow transactions from the client** on. Then do any action with a Google/email login and a wallet with 0 ETH: it should go through. If it fails with "Gas sponsorship failed", read the reason in the message. MetaMask still pays its own gas. With sponsorship working, skip the funding step below.
 - [ ] **Fund the embedded wallet.** Send 0.005 ETH on Base Sepolia from your MetaMask/deployer wallet (`0xDBC2…`) to the embedded wallet `0x06ce0d513728d32f36d90334A33AA48272e005Df`:
   ```bash
   cast send 0x06ce0d513728d32f36d90334A33AA48272e005Df --value 0.005ether \
