@@ -11,7 +11,7 @@ import { Badge, ButtonLink, Section } from "@/components/ui";
 
 /*
  * Landing. Section cadence (DESIGN.md "Editorial Cadence"):
- * video hero → solar wash live pay → tint stats → white ledgers → tint roles → white privacy → periwinkle steps → ink footer.
+ * video hero → solar wash live pay → tint stats → white ledgers → tint roles → white privacy → periwinkle steps → tint roadmap → ink footer.
  * Yellow: the hero CTA (on dark video), the live-pay wash, and the "Yes" chip inside the credential mock (a product-UI metric chip).
  */
 
@@ -55,6 +55,17 @@ const steps = [
   { n: "02", title: "Stream", body: "Fund your vault and create encrypted salary streams. Pay accrues every second." },
   { n: "03", title: "Approve", body: "Salaries above your hidden threshold wait for k of your n approvers." },
   { n: "04", title: "Withdraw and prove", body: "Workers withdraw any amount and issue one-bit income credentials that expire." },
+];
+
+const roadmap = [
+  {
+    title: "Invite by email",
+    body: "Type an employee's email and Dayze sends them your invite link. The address is used once and never stored.",
+  },
+  {
+    title: "Pay notifications",
+    body: "An email when your stream starts or is approved. It says your pay started, never how much.",
+  },
 ];
 
 const statNumber = "font-classic text-[80px] leading-[0.9] tracking-[-0.03em] md:text-display";
@@ -224,6 +235,25 @@ export default function Home() {
           </ol>
         </div>
       </section>
+
+      {/* Roadmap — tint */}
+      <Section tone="tint" id="roadmap">
+        <div className="grid gap-14 lg:grid-cols-[1fr_1.4fr]">
+          <Reveal className="flex flex-col gap-6">
+            <Badge ghost>Roadmap</Badge>
+            <h2 className={sectionHeading}>Coming next.</h2>
+            <p className="text-subheading text-soft-charcoal">What we&apos;re building after the hackathon.</p>
+          </Reveal>
+          <ul className="flex flex-col">
+            {roadmap.map((r, i) => (
+              <Reveal key={r.title} as="li" delay={i * 120} className="flex flex-col gap-2 border-t-[1.5px] border-gloss-black py-5">
+                <h3 className="text-subheading">{r.title}</h3>
+                <p className="text-soft-charcoal">{r.body}</p>
+              </Reveal>
+            ))}
+          </ul>
+        </div>
+      </Section>
 
       <SiteFooter />
     </>

@@ -40,6 +40,9 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
             <Link href="/audit" className={link}>
               Auditors
             </Link>
+            <Link href="/#roadmap" className={link}>
+              Roadmap
+            </Link>
           </nav>
         </div>
         <AuthButton onDark={overlay} />
