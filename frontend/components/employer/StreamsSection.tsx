@@ -13,6 +13,7 @@ import { useDayze } from "@/hooks/useDayze";
 import { useTx } from "@/hooks/useTx";
 import { DayzePayrollAbi, HumanRegistryAbi } from "@/lib/contracts/abis";
 import { encryptUint64 } from "@/lib/fhe";
+import { shortLink } from "@/lib/format";
 import { notifyStreamPayee } from "@/lib/notify";
 import { parseConfidential, type TokenKey } from "@/lib/tokens";
 import { JoinRequestsList } from "./JoinRequestsList";
@@ -70,7 +71,9 @@ export function InviteLink({ onCopied }: { onCopied?: () => void }) {
     <div className="flex flex-col gap-3 rounded-lg bg-gloss-white p-5">
       <span className="text-caption text-mid-grey">Invite link: no salary, no secret, just your org</span>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <code className="flex-1 truncate font-mono text-caption">{link}</code>
+        <code className="flex-1 font-mono text-caption" title={link}>
+          {shortLink(link)}
+        </code>
         <Button variant="outline" onClick={copy}>
           {copied ? "✓ Copied" : "Copy invite link"}
         </Button>

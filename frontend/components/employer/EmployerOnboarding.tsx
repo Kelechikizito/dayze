@@ -116,8 +116,8 @@ export function EmployerOnboarding() {
     {
       key: "invite",
       title: "Invite your first employee",
-      help: "Send them this link. They sign up, verify they're human, and send you their wallet address.",
-      bullets: ["The link holds only your org address", "No salary, no secret"],
+      help: "Send them this link. They sign up, verify they're human, and ask you to pay them. They'll appear under Join requests in your console.",
+      bullets: ["The link holds only your org address", "No salary, no secret", "No wallet addresses to copy"],
       icon: <StepIcon name="invite" />,
       status: statusOf("invite"),
       content: <InviteLink onCopied={() => setCopied(true)} />,

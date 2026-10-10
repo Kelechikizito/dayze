@@ -12,6 +12,7 @@ import { Badge, Button } from "@/components/ui";
 import { useDayze } from "@/hooks/useDayze";
 import { useTx } from "@/hooks/useTx";
 import { IncomeCredentialAbi } from "@/lib/contracts/abis";
+import { shortLink } from "@/lib/format";
 import { formatConfidential, parseConfidential } from "@/lib/tokens";
 import { useChainClockOffset } from "./hooks";
 
@@ -145,7 +146,9 @@ function ShareLink({ id }: { id: bigint }) {
       </div>
       <div className="flex flex-1 flex-col gap-3">
         <span className="text-caption text-mid-grey">Proof #{String(id)} issued. Send this link to the verifier.</span>
-        <code className="truncate font-mono text-caption">{link}</code>
+        <code className="font-mono text-caption" title={link}>
+          {shortLink(link)}
+        </code>
         <div>
           <Button
             variant="outline"
