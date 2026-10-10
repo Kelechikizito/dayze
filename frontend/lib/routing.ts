@@ -46,9 +46,9 @@ function isOnboarded(role: Role): boolean {
 const homeFor: Record<Role, string> = { employer: "/employer", employee: "/worker" };
 
 /**
- * Where to send a user after login. The chain wins over local hints:
- * an org means employer console, streams paying you means worker app.
- * Otherwise: the onboarding route for the role they picked, unless they finished it here before.
+ * Where to send a user after login, for the role they picked. The chain wins over local hints:
+ * as employer, an org means the console; as employee, streams paying you mean the worker app.
+ * Otherwise: that role's onboarding, unless they finished it here before.
  */
 export async function destinationAfterLogin(
   role: Role,
@@ -60,20 +60,23 @@ export async function destinationAfterLogin(
 
   if (payroll && account && publicClient) {
     try {
-      const org = await publicClient.readContract({
-        address: payroll,
-        abi: DayzePayrollAbi,
-        functionName: "orgOf",
-        args: [account],
-      });
-      if (org.exists) return homeFor.employer;
-      const streams = await publicClient.readContract({
-        address: payroll,
-        abi: DayzePayrollAbi,
-        functionName: "streamsOfPayee",
-        args: [account],
-      });
-      if (streams.length > 0) return homeFor.employee;
+      if (role === "employer") {
+        const org = await publicClient.readContract({
+          address: payroll,
+          abi: DayzePayrollAbi,
+          functionName: "orgOf",
+          args: [account],
+        });
+        if (org.exists) return homeFor.employer;
+      } else {
+        const streams = await publicClient.readContract({
+          address: payroll,
+          abi: DayzePayrollAbi,
+          functionName: "streamsOfPayee",
+          args: [account],
+        });
+        if (streams.length > 0) return homeFor.employee;
+      }
     } catch {
       // A failed read falls back to the role hint below
     }
