@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useReadContract } from "wagmi";
+import { useBalance, useReadContract } from "wagmi";
 import { Field, Input, Panel } from "@/components/forms";
 import { TxStatus } from "@/components/TxStatus";
 import { Badge, Button } from "@/components/ui";
 import { useDayze } from "@/hooks/useDayze";
-import { useTx } from "@/hooks/useTx";
+import { useGasSponsored, useTx } from "@/hooks/useTx";
 import { DayzePayrollAbi } from "@/lib/contracts/abis";
 
 /** Reads the connected account's org */
@@ -24,8 +24,10 @@ export function useOrg() {
 
 /** §1 Organisation: a name form until the org exists, then the name and a badge */
 export function OrgSection() {
-  const { d } = useDayze();
+  const { account, d } = useDayze();
   const { org, exists } = useOrg();
+  const sponsored = useGasSponsored();
+  const balance = useBalance({ address: account, query: { enabled: !!account && !exists && !sponsored } });
   const [name, setName] = useState("");
   const tx = useTx();
 
@@ -60,6 +62,12 @@ export function OrgSection() {
           Create organisation
         </Button>
       </form>
+      {!sponsored && balance.data?.value === BigInt(0) && account && (
+        <p className="text-caption text-soft-charcoal">
+          This wallet has no ETH for gas. Send it a little Base Sepolia ETH (0.005 is plenty):{" "}
+          <span className="break-all font-mono">{account}</span>
+        </p>
+      )}
       <TxStatus stage={tx.stage} error={tx.error} txHash={tx.hash} />
     </Panel>
   );
