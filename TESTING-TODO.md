@@ -43,15 +43,10 @@ Go to http://localhost:3000/onboarding/employer.
 
 Once these pass: tick 08, 09 and 10 in `build-guide/README.md`.
 
-## Join requests and email (new)
+## Join requests
 
-- [ ] Email: create a free Resend account (resend.com) → API key → add `RESEND_API_KEY=…` to `frontend/.env.local`, then restart `npm run dev`. Without a verified domain, Resend's test sender (`onboarding@resend.dev`) only delivers to **your own Resend account's email**, so test with an employee logged in with that email. For the demo, verify a domain and set `NOTIFY_FROM_EMAIL="Dayze <pay@yourdomain>"`.
-- [ ] Optional: `NEXT_PUBLIC_APP_URL=https://<your vercel url>` so email links point at the deployed app (defaults to the current origin).
-- [ ] Employee: open the invite link → step 4 "Ask <org> to pay you" → approve the tx → "✓ Request sent…". The box below shows where pay emails go, or an "Add an email" button for wallet logins.
+- [ ] Employee: open the invite link → step 4 "Ask <org> to pay you" → approve the tx → "✓ Request sent…".
 - [ ] Employer: `/employer` → Salary streams shows **Join requests** with the worker and their human badge → **Set salary** fills in New stream → start it → the request disappears from the list.
-- [ ] The employee gets "<Org> started paying you on Dayze" (or "set up your pay…" if it needs approval, then "started paying you" after Activate). The email has no amounts.
-- [ ] If no email arrives, the browser console shows `[dayze] no email sent: <reason>` and the dev server log shows `[notify] …`.
-- [ ] Email invite: in the invite step (or the console's Salary streams), type an email under "Or invite by email" → sign the message in your wallet (no gas) → "Invite sent to …". The employee gets "<Org> invited you to get paid on Dayze" with the invite link. Needs `RESEND_API_KEY`; in Resend's test mode it only reaches your own Resend account's email.
 - [ ] Fallback still works: under "Other ways", the pay-me link opens `/employer?payee=…` with New stream filled in.
 
 ## Checkpoint 11: worker app

@@ -1,6 +1,5 @@
 "use client";
 
-import { usePrivy } from "@privy-io/react-auth";
 import type { Address } from "viem";
 import { useReadContract } from "wagmi";
 import { TxStatus } from "@/components/TxStatus";
@@ -22,26 +21,12 @@ export function useHasRequested(employer: Address | undefined) {
   return data ?? false;
 }
 
-/** The email Privy holds for this user, from an email login or Google */
-export function useNotificationEmail() {
-  const { user } = usePrivy();
-  return user?.email?.address ?? user?.google?.email;
-}
-
-/** a•••@gmail.com: enough to recognise, not enough to copy */
-function maskEmail(email: string) {
-  const [name, domain] = email.split("@");
-  return `${name.slice(0, 1)}•••@${domain}`;
-}
-
 /**
  * The in-app replacement for "send your address by hand": one transaction that puts the worker in the
- * employer's console. Also shows where pay notifications will be emailed, with a way to add an email.
+ * employer's console.
  */
 export function RequestPay({ employer, employerName }: { employer: Address | undefined; employerName?: string }) {
   const { d } = useDayze();
-  const { linkEmail } = usePrivy();
-  const email = useNotificationEmail();
   const requested = useHasRequested(employer);
   const tx = useTx();
   const name = employerName ?? "your employer";
@@ -80,18 +65,6 @@ export function RequestPay({ employer, employerName }: { employer: Address | und
       )}
       <TxStatus stage={tx.stage} error={tx.error} txHash={tx.hash} />
 
-      <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-gloss-white px-5 py-4 text-caption">
-        {email ? (
-          <span>We&apos;ll email {maskEmail(email)} when your pay starts. Never the amount.</span>
-        ) : (
-          <>
-            <span>Get an email when your pay starts?</span>
-            <button type="button" onClick={linkEmail} className="underline underline-offset-4">
-              Add an email
-            </button>
-          </>
-        )}
-      </div>
     </div>
   );
 }

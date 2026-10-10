@@ -14,9 +14,7 @@ import { useTx } from "@/hooks/useTx";
 import { DayzePayrollAbi, HumanRegistryAbi } from "@/lib/contracts/abis";
 import { encryptUint64 } from "@/lib/fhe";
 import { shortLink } from "@/lib/format";
-import { notifyStreamPayee } from "@/lib/notify";
 import { parseConfidential, type TokenKey } from "@/lib/tokens";
-import { InviteByEmail } from "./InviteByEmail";
 import { JoinRequestsList } from "./JoinRequestsList";
 import { StreamStatus, statusLabel, useResolvePolicy, useStreamsOfPayer } from "./streams";
 
@@ -79,16 +77,6 @@ export function InviteLink({ onCopied }: { onCopied?: () => void }) {
           {copied ? "✓ Copied" : "Copy invite link"}
         </Button>
       </div>
-      <div className="border-t-[1.5px] border-gloss-black/10 pt-4">
-        <InviteByEmail
-          onSent={() => {
-            try {
-              localStorage.setItem(inviteKey(account), "1");
-            } catch {}
-            onCopied?.();
-          }}
-        />
-      </div>
     </div>
   );
 }
@@ -119,7 +107,7 @@ export function StreamsSection({ initialPayee }: { initialPayee?: string }) {
 }
 
 function CreateStreamForm({ initialPayee }: { initialPayee?: string }) {
-  const { d, tokens, chainId } = useDayze();
+  const { d, tokens } = useDayze();
   const cofhe = useCofheClient();
   const tx = useTx();
   const resolve = useResolvePolicy(tx);
@@ -172,7 +160,6 @@ function CreateStreamForm({ initialPayee }: { initialPayee?: string }) {
 
     const needsApproval = await resolve(id);
     if (needsApproval === undefined) return;
-    notifyStreamPayee(chainId, id);
     setOutcome(
       needsApproval
         ? `Stream #${id} is above your hidden threshold. It's waiting for approvals.`

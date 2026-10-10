@@ -106,7 +106,7 @@ export function EmployeeOnboarding({ org }: { org?: string }) {
       key: "address",
       title: orgName ? `Ask ${orgName} to pay you` : "Ask your employer to pay you",
       help: "One tap puts you in your employer's console. They set your salary there. No addresses to copy.",
-      bullets: ["Your employer sees your wallet and your ✓ human badge", "We email you when your pay starts, never the amount"],
+      bullets: ["Your employer sees your wallet and your ✓ human badge", "They set your salary from their console"],
       icon: <StepIcon name="wallet" />,
       status: statusOf("address"),
       content: account && (
