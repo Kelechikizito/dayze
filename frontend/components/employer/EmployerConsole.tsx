@@ -9,6 +9,7 @@ import { AuditorsSection, useAuditors } from "./AuditorsSection";
 import { useSkippedSteps } from "./EmployerOnboarding";
 import { FundSection } from "./FundSection";
 import { useOrg } from "./OrgSection";
+import { OrgSwitcher, useMyOrgs } from "./OrgSwitcher";
 import { PolicySection, usePolicy } from "./PolicySection";
 import { StreamsSection, inviteCopied } from "./StreamsSection";
 
@@ -22,6 +23,8 @@ export function EmployerConsole({ payee }: { payee?: string }) {
   const { hasPolicy } = usePolicy();
   const auditors = useAuditors();
   const { skipped } = useSkippedSteps();
+  const { entries } = useMyOrgs();
+  const otherOrgs = entries.some((e) => e.name && e.wallet.address.toLowerCase() !== account?.toLowerCase());
 
   // From a pay-me link: the form renders after the wallet check, so the #streams jump needs a nudge
   useEffect(() => {
@@ -33,11 +36,16 @@ export function EmployerConsole({ payee }: { payee?: string }) {
   if (!exists) {
     return (
       <div className="flex max-w-xl flex-col gap-4 py-10">
-        <h2 className="text-heading-sm">No organisation yet</h2>
-        <p className="text-soft-charcoal">Set up your payroll first. It takes a few minutes.</p>
+        <h2 className="text-heading-sm">{otherOrgs ? "No organisation in this wallet" : "No organisation yet"}</h2>
+        <p className="text-soft-charcoal">
+          {otherOrgs
+            ? "Pick one of your organisations, or finish setting up a new one."
+            : "Set up your payroll first. It takes a few minutes."}
+        </p>
         <div>
-          <ButtonLink href="/onboarding/employer">Start setup</ButtonLink>
+          <ButtonLink href="/onboarding/employer">{otherOrgs ? "Continue setup" : "Start setup"}</ButtonLink>
         </div>
+        {otherOrgs && <OrgSwitcher />}
       </div>
     );
   }
@@ -56,7 +64,7 @@ export function EmployerConsole({ payee }: { payee?: string }) {
           <Badge ghost>Employer console</Badge>
           <h1 className="text-[44px] leading-[0.97] tracking-[-0.03em] md:text-heading-lg">{org?.name}</h1>
         </div>
-        <Badge>Private payroll</Badge>
+        <OrgSwitcher />
       </header>
 
       {todo.length > 0 && (
