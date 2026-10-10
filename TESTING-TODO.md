@@ -51,6 +51,7 @@ Once these pass: tick 08, 09 and 10 in `build-guide/README.md`.
 - [ ] Employer: `/employer` → Salary streams shows **Join requests** with the worker and their human badge → **Set salary** fills in New stream → start it → the request disappears from the list.
 - [ ] The employee gets "<Org> started paying you on Dayze" (or "set up your pay…" if it needs approval, then "started paying you" after Activate). The email has no amounts.
 - [ ] If no email arrives, the browser console shows `[dayze] no email sent: <reason>` and the dev server log shows `[notify] …`.
+- [ ] Email invite: in the invite step (or the console's Salary streams), type an email under "Or invite by email" → sign the message in your wallet (no gas) → "Invite sent to …". The employee gets "<Org> invited you to get paid on Dayze" with the invite link. Needs `RESEND_API_KEY`; in Resend's test mode it only reaches your own Resend account's email.
 - [ ] Fallback still works: under "Other ways", the pay-me link opens `/employer?payee=…` with New stream filled in.
 
 ## Checkpoint 11: worker app

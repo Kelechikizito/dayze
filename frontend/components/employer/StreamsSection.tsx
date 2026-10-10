@@ -16,6 +16,7 @@ import { encryptUint64 } from "@/lib/fhe";
 import { shortLink } from "@/lib/format";
 import { notifyStreamPayee } from "@/lib/notify";
 import { parseConfidential, type TokenKey } from "@/lib/tokens";
+import { InviteByEmail } from "./InviteByEmail";
 import { JoinRequestsList } from "./JoinRequestsList";
 import { StreamStatus, statusLabel, useResolvePolicy, useStreamsOfPayer } from "./streams";
 
@@ -77,6 +78,16 @@ export function InviteLink({ onCopied }: { onCopied?: () => void }) {
         <Button variant="outline" onClick={copy}>
           {copied ? "✓ Copied" : "Copy invite link"}
         </Button>
+      </div>
+      <div className="border-t-[1.5px] border-gloss-black/10 pt-4">
+        <InviteByEmail
+          onSent={() => {
+            try {
+              localStorage.setItem(inviteKey(account), "1");
+            } catch {}
+            onCopied?.();
+          }}
+        />
       </div>
     </div>
   );

@@ -90,6 +90,8 @@ Each step is a tx, so show a stepper:
 - Table: payee · **human** · token · status · monthly (unsealed for the payer, blurred until hover) · started · cancel
 - **Human** column: `humanRegistry.isHuman(payee)` (07a). Show "✓ verified human" or "not verified". It's a hint against ghost employees, not a block. Show it in the create form too, right after the address is pasted.
 
+**Email invites.** Under the invite link, "Or invite by email" sends the link through `/api/invite` (Resend). The employer signs `inviteMessage(org, email, chain, issuedAt)` first, which costs no gas. The server checks the signature (EOA or smart wallet), that it's under 10 minutes old, and that the signer has an org onchain, so nobody can use Dayze's sender as someone else. Limits: 20 invites per org per hour, and no repeat to the same address within the hour. The address isn't stored, isn't onchain and isn't in the link.
+
 ### 6. Approvals queue
 
 **To do:**
