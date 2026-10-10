@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useAccount } from "wagmi";
 import { Badge, Button } from "./ui";
@@ -16,6 +17,15 @@ export function shortAddress(address: string): string {
 export function AuthButton({ onDark = false }: { onDark?: boolean }) {
   const { ready, authenticated, login, logout } = usePrivy();
   const { address } = useAccount();
+  const [copied, setCopied] = useState(false);
+
+  const copyAddress = () => {
+    if (!address) return;
+    void navigator.clipboard.writeText(address).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
 
   if (!ready) {
     return (
@@ -35,14 +45,17 @@ export function AuthButton({ onDark = false }: { onDark?: boolean }) {
 
   return (
     <div className="flex items-center gap-3">
-      {address &&
-        (onDark ? (
-          <span className="rounded-lg bg-pure-white/15 px-3 py-1 text-caption text-pure-white backdrop-blur">
-            {shortAddress(address)}
-          </span>
-        ) : (
-          <Badge>{shortAddress(address)}</Badge>
-        ))}
+      {address && (
+        <button type="button" onClick={copyAddress} title={`${address} (click to copy)`} className="cursor-pointer">
+          {onDark ? (
+            <span className="rounded-lg bg-pure-white/15 px-3 py-1 text-caption text-pure-white backdrop-blur">
+              {copied ? "Copied" : shortAddress(address)}
+            </span>
+          ) : (
+            <Badge>{copied ? "Copied" : shortAddress(address)}</Badge>
+          )}
+        </button>
+      )}
       <Button variant={onDark ? "outline-light" : "outline"} onClick={logout}>
         Log out
       </Button>
