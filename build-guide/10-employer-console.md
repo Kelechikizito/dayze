@@ -38,6 +38,12 @@ Copy: one short line per step. Example for step 3: "Shield tokens and move them 
 - If `orgs(address).exists` is false → form: name → `createOrg`
 - Else show the name + a "Private payroll" badge
 
+**Several orgs per login.** The contracts allow one org per address, so each org lives in its own wallet. Privy gives one login several embedded wallets (`useCreateWallet().createWallet({ createAdditional: true })`).
+- The console header has a **+ New org** button. It reuses an embedded wallet with no org, or creates one, switches to it with `useSetActiveWallet()`, and opens `/onboarding/employer`.
+- With two or more orgs, pills next to it switch between them. `useMyOrgs()` reads `orgOf` for every wallet the login has.
+- The choice survives a reload: `@privy-io/wagmi` remembers the last active wallet.
+- Each org has its own vault, policy and auditors. Nothing is shared between them.
+
 ### 2. Fund
 
 **To do:**
@@ -90,7 +96,7 @@ Each step is a tx, so show a stepper:
 - Table: payee · **human** · token · status · monthly (unsealed for the payer, blurred until hover) · started · cancel
 - **Human** column: `humanRegistry.isHuman(payee)` (07a). Show "✓ verified human" or "not verified". It's a hint against ghost employees, not a block. Show it in the create form too, right after the address is pasted.
 
-**Email invites.** Under the invite link, "Or invite by email" sends the link through `/api/invite` (Resend). The employer signs `inviteMessage(org, email, chain, issuedAt)` first, which costs no gas. The server checks the signature (EOA or smart wallet), that it's under 10 minutes old, and that the signer has an org onchain, so nobody can use Dayze's sender as someone else. Limits: 20 invites per org per hour, and no repeat to the same address within the hour. The address isn't stored, isn't onchain and isn't in the link.
+**Email invites: on the roadmap.** Sending the invite link by email was built, then removed: emailing any inbox needs a domain you own. It's listed in the landing page's Roadmap section.
 
 ### 6. Approvals queue
 

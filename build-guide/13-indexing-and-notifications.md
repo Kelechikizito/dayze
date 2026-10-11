@@ -26,6 +26,7 @@ Goal: faster dashboards than `getLogs`. A public index is safe because it only h
 **To do:**
 - [ ] Write a read-only watcher for `StreamPending` that posts to Telegram or Discord
 - [ ] Add the in-app "credential expires soon" banner for workers
+- [ ] Later: email invites and "your pay started" emails (on the landing page Roadmap). They need a sending domain you own.
 
 Keep it small:
 - **Approvers:** a small read-only watcher (viem `watchContractEvent` on `StreamPending`) posts to a Telegram bot or Discord webhook. It only reads events, so it needs no key.

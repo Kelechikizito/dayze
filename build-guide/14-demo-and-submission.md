@@ -11,7 +11,7 @@
 
 - Deploy with `PERIOD = 600` (a "month" is 10 minutes) so salaries visibly grow
 - Pre-seed: org "Acme Labs", $10k policy with 2 approvers, 1 auditor, $3k and $6k streams (Active). Create the $12k one live.
-- One browser profile per role: **Employer**, **Worker**, **Landlord**, **Auditor**. Each is signed in with Privy and has an ACP signed. Use email sign-up for the Worker and Landlord to show that no wallet extension is needed. Fund each embedded wallet with a little test ETH.
+- One browser profile per role: **Employer**, **Worker**, **Landlord**, **Auditor**. Each is signed in with Privy and has an ACP signed. Use email sign-up for the Worker and Landlord to show that no wallet extension is needed. Privy sponsors gas for embedded wallets (09), so they need no ETH. Only a MetaMask wallet needs test ETH.
 - Register the Worker with World ID before the demo (simulator is fine on staging). World ID needs a phone, so don't do it live.
 - Unlock the `dayze-deployer` keystore only to deploy/seed. Nothing runs in the background with a key (the employer UI resolves policy checks).
 

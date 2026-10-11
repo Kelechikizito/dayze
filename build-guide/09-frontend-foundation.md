@@ -86,7 +86,11 @@ Use Privy's `login()` / `logout()` from `usePrivy()` for the buttons. After logi
 
 **Active wallet.** If the browser also has MetaMask, Privy can log in and create the embedded wallet, but leave wagmi with **no account**. Then `useAccount()` is empty and CoFHE never connects. Fix it with a small component inside `WagmiProvider`: once `useWallets()` is ready and `useAccount().address` is empty, call `useSetActiveWallet().setActiveWallet(...)` from `@privy-io/wagmi` with the embedded wallet (`walletClientType === "privy"`), or else the first wallet.
 
-**Gas:** an embedded wallet starts empty. For the demo, send each new wallet a little Base Sepolia ETH from a faucet or your deployer. Privy's gas sponsorship is an option later. Check that it supports Base Sepolia before you plan on it.
+**Gas: Privy pays it.** An embedded wallet starts with 0 ETH, so Dayze sponsors its gas through Privy.
+- Privy dashboard → **Fee sponsorship**: turn on **Sponsor gas fees**, add **Base Sepolia** under Supported chains, and turn on **Allow transactions from the client**. Testnets need no payment method. Mainnet does.
+- In `useTx`, embedded wallets send through Privy's `useSendTransaction` with `{ sponsor: true }`. Privy upgrades the wallet with EIP-7702 and a paymaster pays. The address stays the same, so contracts and CoFHE permits don't change.
+- MetaMask and other external wallets still pay their own gas, through wagmi as before.
+- Set `NEXT_PUBLIC_SPONSOR_GAS=false` to turn it off.
 
 **SSR:** `@cofhe/sdk/web` lazy-loads `tfhe` (WASM). Use CoFHE only in client components. On the server it falls back to a no-op storage, so static pages still prerender.
 
