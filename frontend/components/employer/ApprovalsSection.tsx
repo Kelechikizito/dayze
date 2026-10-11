@@ -12,7 +12,7 @@ import { useTx } from "@/hooks/useTx";
 import { ApprovalPolicyAbi, DayzePayrollAbi } from "@/lib/contracts/abis";
 import { StreamStatus, type StreamRow } from "./streams";
 
-type QueueItem = { stream: StreamRow; count: number; required: number; approved: boolean };
+type QueueItem = { stream: StreamRow; orgName: string; count: number; required: number; approved: boolean };
 
 /**
  * Pending streams, across every org, where the connected account is an approver.
@@ -49,12 +49,13 @@ export function useApprovalQueue() {
             publicClient!.readContract({ address: d!.approvalPolicy, abi: ApprovalPolicyAbi, functionName, args } as never);
           const isApprover = (await read("isApprover", [s.payer, account])) as boolean;
           if (!isApprover) return undefined;
-          const [count, required, approved] = await Promise.all([
+          const [count, required, approved, org] = await Promise.all([
             read("approvalCount", [s.payer, id]) as Promise<number>,
             read("required", [s.payer]) as Promise<number>,
             read("hasApproved", [s.payer, id, account]) as Promise<boolean>,
+            publicClient!.readContract({ address: d!.payroll, abi: DayzePayrollAbi, functionName: "orgOf", args: [s.payer] }),
           ]);
-          return { stream: { id, ...s }, count: Number(count), required: Number(required), approved };
+          return { stream: { id, ...s }, orgName: org.name, count: Number(count), required: Number(required), approved };
         }),
       );
       return items.filter((i): i is QueueItem => !!i);
@@ -89,11 +90,11 @@ export function ApprovalsSection() {
         <p className="text-caption text-mid-grey">Nothing waiting for your approval.</p>
       ) : (
         <ul className="flex flex-col">
-          {queue.map(({ stream: s, count, required, approved }) => (
+          {queue.map(({ stream: s, orgName, count, required, approved }) => (
             <li key={String(s.id)} className="flex flex-wrap items-center justify-between gap-4 border-t-[1.5px] border-gloss-black/10 py-4">
               <div className="flex flex-col gap-1">
                 <span>
-                  Stream #{String(s.id)} · {symbolOf(s.token)}
+                  {orgName} · stream #{String(s.id)} · {symbolOf(s.token)}
                 </span>
                 <span className="text-caption text-soft-charcoal">
                   {shortAddress(s.payer)} → {shortAddress(s.payee)}

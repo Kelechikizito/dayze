@@ -70,6 +70,9 @@ export function SiteFooter() {
           <Link href="/worker" className="hover:text-pure-white/70">
             Worker app
           </Link>
+          <Link href="/approvals" className="hover:text-pure-white/70">
+            Approvals
+          </Link>
           <Link href="/audit" className="hover:text-pure-white/70">
             Auditor view
           </Link>

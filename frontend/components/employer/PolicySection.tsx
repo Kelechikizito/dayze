@@ -63,6 +63,7 @@ export function PolicySection() {
           })}
         </div>
       )}
+      {hasPolicy && <ApproverLink />}
       {/* Keyed so the form refills once the chain read arrives */}
       <ApproversForm key={`${approvers.join()}-${required}`} current={approvers} currentRequired={required} />
       {hasPolicy && (
@@ -175,5 +176,24 @@ function ThresholdForm({ token }: { token: ConfidentialTokenInfo }) {
       </div>
       <TxStatus stage={tx.stage} error={tx.error} txHash={tx.hash} />
     </form>
+  );
+}
+
+/** Where approvers go to approve: they may have no org, so it's its own page */
+function ApproverLink() {
+  const [copied, setCopied] = useState(false);
+  const link = typeof window === "undefined" ? "/approvals" : `${window.location.origin}/approvals`;
+  return (
+    <p className="text-caption text-soft-charcoal">
+      Approvers approve at{" "}
+      <button
+        type="button"
+        className="font-mono underline underline-offset-4"
+        onClick={() => void navigator.clipboard.writeText(link).then(() => setCopied(true))}
+      >
+        {link.replace(/^https?:\/\//, "")}
+      </button>
+      {copied ? " ✓ copied" : " (click to copy and send it to them)"}. You can approve from your console too.
+    </p>
   );
 }
