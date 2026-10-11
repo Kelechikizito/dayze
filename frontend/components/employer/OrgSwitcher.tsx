@@ -16,6 +16,9 @@ import { DayzePayrollAbi } from "@/lib/contracts/abis";
 const GAS_TOP_UP = parseEther("0.003");
 const GAS_KEEP = parseEther("0.001");
 
+/** Org pills shown before "See more" */
+const MAX_PILLS = 3;
+
 /**
  * Every org this login owns. The contracts allow one org per address, so each org lives in its own wallet:
  * Privy gives one login several embedded wallets. Returns each wallet with its org name, if it has one.
@@ -61,6 +64,11 @@ export function OrgSwitcher() {
 
   const orgs = entries.filter((e) => e.name);
   const activeOrg = orgs.find((e) => e.wallet.address.toLowerCase() === account?.toLowerCase());
+  const [showAll, setShowAll] = useState(false);
+  // At most 3 pills, always including the active org; the rest go in a "See more" list
+  const first = orgs.slice(0, MAX_PILLS);
+  const pills = activeOrg && !first.includes(activeOrg) ? [...first.slice(0, MAX_PILLS - 1), activeOrg] : first;
+  const rest = orgs.filter((o) => !pills.includes(o));
 
   const switchTo = async (wallet: ConnectedWallet) => {
     setError(undefined);
@@ -139,7 +147,7 @@ export function OrgSwitcher() {
       <div className="flex flex-wrap items-center gap-3">
         {(orgs.length > 1 || (orgs.length > 0 && !activeOrg)) && (
           <PillPicker
-            options={orgs.map((o) => ({ value: o.wallet.address, label: o.name! }))}
+            options={pills.map((o) => ({ value: o.wallet.address, label: o.name! }))}
             value={activeOrg?.wallet.address ?? ""}
             onChange={(address) => {
               const target = orgs.find((o) => o.wallet.address === address);
@@ -147,10 +155,41 @@ export function OrgSwitcher() {
             }}
           />
         )}
+        {rest.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowAll(!showAll)}
+            aria-expanded={showAll}
+            className="text-caption text-soft-charcoal underline underline-offset-4"
+          >
+            {showAll ? "See less" : `See more (${rest.length})`}
+          </button>
+        )}
         <Button variant="outline" className="!px-4 !py-2 text-caption" disabled={busy} onClick={() => void newOrg()}>
           + New org
         </Button>
       </div>
+      {showAll && rest.length > 0 && (
+        <ul className="flex max-h-64 flex-col overflow-y-auto rounded-lg border-[1.5px] border-gloss-black/10">
+          {rest.map((o) => (
+            <li key={o.wallet.address} className="border-t-[1.5px] border-gloss-black/10 first:border-t-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAll(false);
+                  void switchTo(o.wallet);
+                }}
+                className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left hover:bg-gloss-white"
+              >
+                <span>{o.name}</span>
+                <span className="font-mono text-caption text-mid-grey">
+                  {o.wallet.address.slice(0, 6)}…{o.wallet.address.slice(-4)}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       {busy && status && <p className="text-caption text-soft-charcoal">{status}</p>}
       {error && <p className="text-caption text-soft-charcoal">Something went wrong: {error}</p>}
     </div>
