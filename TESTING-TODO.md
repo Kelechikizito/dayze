@@ -51,17 +51,36 @@ Once these pass: tick 08, 09 and 10 in `build-guide/README.md`.
 
 ## Checkpoint 11: worker app
 
-Use a second wallet as the employee: a different Google/email login in another browser profile. Fund it with 0.005 ETH too, since withdraw, cash out, World ID and income proofs are all transactions.
+Use a second wallet as the employee: a different Google/email login in another browser profile. Gas is sponsored, so it needs no ETH.
 
 - [ ] Employer copies the invite link → the employee opens it → "invited by <org name>" shows.
 - [ ] World ID **Selfie Check** in sandbox (`NEXT_PUBLIC_WLD_ENVIRONMENT=sandbox`, scan with the **World ID (Sandbox)** app) → "✓ verified human". It's one-time per person: use a sandbox account you can reset. If `register` fails after the selfie, the **Finish registration** button retries without a new selfie. This also completes 07a. If `attest` rejects it, check the dev server log for `[world-id] verify rejected` with the expected and actual environment.
-- [ ] Or skip World ID: everything still works, and the payee shows "not verified".
 - [ ] Unlock (ACP signature) → copy the address → the employer starts a stream for it → the employee page moves to `/worker` by itself.
 - [ ] `/worker`: click "Show my pay" once. The balance ticks smoothly, with 6 decimals and "Updating live. 0 transactions."
 - [ ] Withdraw a little → "Withdrew X cUSDC". Withdraw more than available → the "nothing moved" message, with no revert.
 - [ ] The withdraw tx on Basescan shows no readable amount. Screenshot it for the pitch.
 - [ ] Cash out: confirm the public-amount warning → Unshield → Decrypt → Claim → USDC lands in the wallet (or ETH for cETH).
 - [ ] Issue an income proof (5-minute expiry) → copy the link / QR → the countdown runs → Revoke works.
+
+## Decrypting with a gas-sponsored wallet (new)
+
+- [ ] Employer console → vault → 👁 reveal. It should ask for one signature, then show the balance. No more "sealOutput request failed with HTTP 401".
+- [ ] If it still fails, copy the `[dayze]` lines from the browser console.
+- [ ] Cancel a stream. If it fails, copy the `[dayze] transaction failed` line.
+
+## Approvers (new)
+
+- [ ] Policy section shows "Approvers approve at …/approvals". Open it with the second approver's login: the pending stream shows with the org name → Approve. With enough approvals, Activate works from either page.
+
+## Checkpoint 12: verifier and auditor (new)
+
+- [ ] Landlord login → `/verify` → copy the address. The worker issues a proof to it.
+- [ ] Landlord opens the proof link: org, threshold, dates, human line. **Reveal result** → ✅ or ❌.
+- [ ] Another login on the same link sees "This credential was issued to …" and can't reveal.
+- [ ] With a 5-minute proof, the banner counts down and flips to **Expired** with no reload.
+- [ ] Auditor login → `/audit` → the org appears → **Decrypt the books** → amounts show → **Export CSV** downloads. The network tab shows no upload.
+
+Once these pass: tick 12 in `build-guide/README.md`.
 
 ## Interaction scripts not tested yet
 
