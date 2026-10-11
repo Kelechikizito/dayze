@@ -34,7 +34,7 @@ function writeFlag(account: string | undefined, name: string) {
 
 /**
  * Employee onboarding (11 §0), opened from the employer's invite link.
- * Chain reads decide each step; the "address shared" step and skips are local UX hints.
+ * Chain reads decide each step; only the "address shared" step is a local UX hint.
  */
 export function EmployeeOnboarding({ org }: { org?: string }) {
   const router = useRouter();
@@ -45,7 +45,6 @@ export function EmployeeOnboarding({ org }: { org?: string }) {
   const requested = useHasRequested(orgAddress);
   const { hasACP, status: acpStatus, error: acpError, ensureACP } = useEnsureACP();
   const { count } = useStreamsOfPayee(10_000);
-  const [skippedHuman, setSkippedHuman] = useState(() => readFlag(account, "skip-human"));
   const [shared, setShared] = useState(() => readFlag(account, "shared-address"));
 
   // A stream exists: onboarding is over
@@ -58,9 +57,10 @@ export function EmployeeOnboarding({ org }: { org?: string }) {
 
   const done = { human: isHuman, acp: hasACP, address: requested || shared };
   const order = ["human", "acp", "address", "wait"] as const;
-  const activeKey = order.find((k) => (k === "wait" ? true : !done[k] && !(k === "human" && skippedHuman)));
+  // The Selfie Check is required: nothing after it opens until the wallet is a verified human
+  const activeKey = order.find((k) => (k === "wait" ? true : !done[k]));
   const statusOf = (k: (typeof order)[number]): StepStatus =>
-    k !== "wait" && done[k] ? "done" : k === "human" && skippedHuman ? "skipped" : k === activeKey ? "active" : "todo";
+    k !== "wait" && done[k] ? "done" : k === activeKey ? "active" : "todo";
 
   const steps: WizardStep[] = [
     {
@@ -73,15 +73,11 @@ export function EmployeeOnboarding({ org }: { org?: string }) {
     {
       key: "human",
       title: "Verify you're human",
-      help: "Optional. A quick World ID Selfie Check proves you're a real person without sharing who you are. Landlords will see it on your income proofs.",
+      help: "Required. A quick World ID Selfie Check proves you're a real person without sharing who you are. Your employer and landlords see the ✓ human badge.",
       bullets: ["Selfie Check in World App, no Orb needed", "Once, and permanent: no repeat checks", "Your face and name never leave World App"],
       icon: <StepIcon name="human" />,
       status: statusOf("human"),
       content: <WorldIdVerify />,
-      onSkip: () => {
-        writeFlag(account, "skip-human");
-        setSkippedHuman(true);
-      },
     },
     {
       key: "acp",
