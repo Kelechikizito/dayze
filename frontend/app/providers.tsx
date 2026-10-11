@@ -5,9 +5,10 @@ import { baseSepolia as cofheBaseSepolia } from "@cofhe/sdk/chains";
 import { PrivyProvider, usePrivy, useWallets } from "@privy-io/react-auth";
 import { WagmiProvider, createConfig, useSetActiveWallet } from "@privy-io/wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { http, useAccount, usePublicClient, useWalletClient } from "wagmi";
 import { defaultChain, rpcUrls, supportedChains } from "@/lib/chains";
+import { withKernelSignatures } from "@/lib/kernelSignature";
 import { privyChains } from "@/lib/privyChains";
 
 /*
@@ -49,16 +50,23 @@ function ActiveWalletSync() {
   return null;
 }
 
-/** Hands wagmi's current clients to CoFHE, which reconnects whenever the wallet or chain changes */
+/**
+ * Hands wagmi's current clients to CoFHE, which reconnects whenever the wallet or chain changes.
+ * Permit signatures go through `withKernelSignatures`, so gas-sponsored (EIP-7702) wallets can still unseal.
+ */
 function CofheBridge({ children, queryClient }: { children: ReactNode; queryClient: QueryClient }) {
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
+  const cofheWallet = useMemo(
+    () => (walletClient && publicClient ? withKernelSignatures(walletClient, publicClient) : undefined),
+    [walletClient, publicClient],
+  );
   return (
     <CofheProvider
       config={cofheConfig}
       queryClient={queryClient}
       publicClient={publicClient}
-      walletClient={walletClient ?? undefined}
+      walletClient={cofheWallet}
     >
       {children}
     </CofheProvider>
