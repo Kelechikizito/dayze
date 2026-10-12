@@ -11,6 +11,7 @@ import { FundSection } from "./FundSection";
 import { useOrg } from "./OrgSection";
 import { OrgSwitcher, useMyOrgs } from "./OrgSwitcher";
 import { PolicySection, usePolicy } from "./PolicySection";
+import { RunPayrollSection } from "./RunPayrollSection";
 import { StreamsSection, inviteCopied } from "./StreamsSection";
 
 /**
@@ -85,6 +86,9 @@ export function EmployerConsole({ payee }: { payee?: string }) {
 
       <div id="streams">
         <StreamsSection initialPayee={payee} />
+      </div>
+      <div id="payroll">
+        <RunPayrollSection />
       </div>
       <ApprovalsSection />
       <div id="vault">

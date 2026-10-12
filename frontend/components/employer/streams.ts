@@ -31,7 +31,25 @@ export type StreamRow = {
   endTime: bigint;
   status: number;
   needsApproval: Hex;
+  /** Set aside by the latest payroll run; streams from allocStart to allocEnd */
+  allocated: Hex;
+  /** Set aside in earlier periods (or before a cancel), fully earned */
+  banked: Hex;
+  allocStart: bigint;
+  /** End of the period `allocated` is for; 0 if none */
+  allocEnd: bigint;
 };
+
+/** End of the pay period containing `nowSec`. Mirrors DayzePayroll._periodEnd: fixed windows from time 0. */
+export function periodEndOf(nowSec: bigint, period: number): bigint {
+  const p = BigInt(period);
+  return (nowSec / p + BigInt(1)) * p;
+}
+
+/** Whether payroll has already set money aside for this stream in the current period */
+export function fundedThisPeriod(s: StreamRow, nowSec: bigint, period: number): boolean {
+  return s.allocEnd === periodEndOf(nowSec, period);
+}
 
 const SCAN_BATCH = 50;
 

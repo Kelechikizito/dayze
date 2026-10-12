@@ -70,6 +70,17 @@ export function useChainClockOffset() {
   return data ?? 0;
 }
 
+/** The chain's current time in whole seconds, refreshed every `everyMs` */
+export function useChainNow(everyMs = 1000): bigint {
+  const offset = useChainClockOffset();
+  const [now, setNow] = useState(() => Date.now() / 1000);
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now() / 1000), everyMs);
+    return () => clearInterval(id);
+  }, [everyMs]);
+  return BigInt(Math.floor(now + offset));
+}
+
 /**
  * Unseals one encrypted uint64 once per handle (a new handle after a write unseals again).
  * Runs only when `enabled`, so the ACP prompt appears when the worker asks to see their pay.

@@ -16,7 +16,8 @@ import { encryptUint64 } from "@/lib/fhe";
 import { shortLink } from "@/lib/format";
 import { parseConfidential, type TokenKey } from "@/lib/tokens";
 import { JoinRequestsList } from "./JoinRequestsList";
-import { StreamStatus, statusLabel, useResolvePolicy, useStreamsOfPayer } from "./streams";
+import { fundedThisPeriod, StreamStatus, statusLabel, useResolvePolicy, useStreamsOfPayer } from "./streams";
+import { useChainNow } from "@/components/worker/hooks";
 
 /** "✓ verified human" or "not verified", from HumanRegistry (07a). A hint against ghost employees, not a block. */
 export function HumanBadge({ address }: { address: Address | undefined }) {
@@ -163,7 +164,7 @@ function CreateStreamForm({ initialPayee }: { initialPayee?: string }) {
     setOutcome(
       needsApproval
         ? `Stream #${id} is above your hidden threshold. It's waiting for approvals.`
-        : `Stream #${id} is active and paying by the second.`,
+        : `Stream #${id} is active. Run payroll below to set its pay aside.`,
     );
     setPayee("");
     setMonthly("");
@@ -207,6 +208,7 @@ function StreamsTable() {
   const { rows, isLoading } = useStreamsOfPayer();
   const tx = useTx();
   const resolve = useResolvePolicy(tx);
+  const now = useChainNow(5000);
   const symbolOf = (wrapper: Address) => tokens.find((t) => t.wrapper.toLowerCase() === wrapper.toLowerCase())?.symbol ?? "?";
 
   if (isLoading) return <p className="text-caption text-mid-grey">Loading streams…</p>;
@@ -221,7 +223,7 @@ function StreamsTable() {
         <table className="w-full min-w-[720px] text-left text-caption">
           <thead className="text-mid-grey">
             <tr>
-              {["#", "Employee", "Token", "Status", "Monthly", "Started", ""].map((h) => (
+              {["#", "Employee", "Token", "Status", "Monthly", "This period", "Started", ""].map((h) => (
                 <th key={h} className="pb-3 font-medium">
                   {h}
                 </th>
@@ -246,6 +248,20 @@ function StreamsTable() {
                 </td>
                 <td className="py-3">
                   <SecretValue handle={s.monthly} unit={symbolOf(s.token)} />
+                </td>
+                <td className="py-3">
+                  {s.status !== StreamStatus.Active ? (
+                    <span className="text-soft-charcoal">—</span>
+                  ) : d && fundedThisPeriod(s, now, d.period) ? (
+                    <span className="flex flex-col gap-1">
+                      <span className="text-soft-charcoal">set aside</span>
+                      <SecretValue handle={s.allocated} unit={symbolOf(s.token)} />
+                    </span>
+                  ) : (
+                    <a href="#payroll" className="underline underline-offset-4">
+                      not funded
+                    </a>
+                  )}
                 </td>
                 <td className="py-3">
                   {s.startTime > BigInt(0) ? (
