@@ -2,6 +2,16 @@
 
 Manual checks that are waiting on you. Tick them off as you go.
 
+## Redeploy for the payroll model (do this first)
+
+Payroll now runs vault → payroll (once a period, with a budget) → each stream's allocation → the employee. The contract changed, so everything is redeployed. Old orgs and streams don't carry over.
+
+- [ ] Optional, but this is the moment: put a fresh attester address in `ATTESTER` in `.env`, and its private key in `ATTESTER_PRIVATE_KEY` in `frontend/.env.local`. Then the funded deployer key is no longer on the server.
+- [ ] In your own terminal: `make deploy-dry`, then `make deploy`.
+- [ ] `make export-abis`, then restart `npm run dev`.
+- [ ] `make test-fork` passes.
+- [ ] Everyone re-does the Selfie Check: it's a new HumanRegistry.
+
 ## Before testing: wallet setup
 
 - [ ] **Gas sponsorship.** Privy dashboard → Fee sponsorship: **Sponsor gas fees** on, **Base Sepolia** added, **Allow transactions from the client** on. Then do any action with a Google/email login and a wallet with 0 ETH: it should go through. If it fails with "Gas sponsorship failed", read the reason in the message. MetaMask still pays its own gas. With sponsorship working, skip the funding step below.
@@ -37,6 +47,10 @@ Go to http://localhost:3000/onboarding/employer.
 - [ ] Refresh mid-onboarding: the wizard should resume at the right step.
 - [ ] In `/employer`, create a 3,000 cUSDC stream. It should go **Active** on its own after "Checking policy privately…".
 - [ ] Create a 12,000 cUSDC stream. It should go **Needs approval**. Approve it from both approver wallets, then **Activate**.
+- [ ] Streams table: an active stream shows **not funded** under "This period".
+- [ ] **Run payroll**: it shows when the period ends and how many streams aren't funded. Type a budget (e.g. 5000) → **Run payroll for N streams**. "This period" turns to "set aside" with the amount. The vault goes down by what was set aside, not by the whole budget.
+- [ ] Short budget: two 3,000 streams with a 4,000 budget → the first gets 3,000, the second 1,000.
+- [ ] After the period ends (10 minutes), streams show **not funded** again. Run payroll for the new period.
 - [ ] A verified payee shows "✓ verified human"; an unverified one shows "not verified".
 - [ ] Every action shows the TxStatus stages, with no silent waits and no Privy confirm pop-ups.
 - [ ] Each transaction links to Basescan. The links stay after a step finishes: under "✓ Done" in the wizard, and under the Fund and Policy forms.
@@ -57,8 +71,12 @@ Use a second wallet as the employee: a different Google/email login in another b
 - [ ] Employer copies the invite link → the employee opens it → "invited by <org name>" shows.
 - [ ] World ID **Selfie Check** in sandbox (`NEXT_PUBLIC_WLD_ENVIRONMENT=sandbox`, scan with the **World ID (Sandbox)** app) → "✓ verified human". It's one-time per person: use a sandbox account you can reset. If `register` fails after the selfie, the **Finish registration** button retries without a new selfie. This also completes 07a. If `attest` rejects it, check the dev server log for `[world-id] verify rejected` with the expected and actual environment.
 - [ ] Unlock (ACP signature) → copy the address → the employer starts a stream for it → the employee page moves to `/worker` by itself.
-- [ ] `/worker`: click "Show my pay" once. The balance ticks smoothly, with 6 decimals and "Updating live. 0 transactions."
-- [ ] Withdraw a little → "Withdrew X cUSDC". Withdraw more than available → the "nothing moved" message, with no revert.
+- [ ] `/worker` before payroll runs: "Waiting for <org> to run payroll for this period."
+- [ ] After payroll runs: "Your salary this period" ticks from 0 up to the amount set aside (e.g. "1,200.000000 of 3000 cUSDC"), with a progress bar. It stops there and never goes past it.
+- [ ] A short budget shows "<org> set aside X of the Y cUSDC due this period." A stream funded mid-period shows "Pro rata…".
+- [ ] When the period ends without a new payroll run, the big number goes to 0 and **Unclaimed from earlier periods** shows what wasn't withdrawn.
+- [ ] Withdraw a little → "Withdrew X cUSDC". Withdraw more than streamed → the "nothing moved" message, with no revert. Leave it empty → withdraws everything streamed so far, including unclaimed.
+- [ ] Employer cancels mid-period: the employee keeps what streamed; the employer's vault gets the rest back.
 - [ ] The withdraw tx on Basescan shows no readable amount. Screenshot it for the pitch.
 - [ ] Cash out: confirm the public-amount warning → Unshield → Decrypt → Claim → USDC lands in the wallet (or ETH for cETH).
 - [ ] Issue an income proof (5-minute expiry) → copy the link / QR → the countdown runs → Revoke works.
@@ -79,7 +97,7 @@ Use a second wallet as the employee: a different Google/email login in another b
 - [ ] Landlord opens the proof link: org, threshold, dates, human line. **Reveal result** → ✅ or ❌.
 - [ ] Another login on the same link sees "This credential was issued to …" and can't reveal.
 - [ ] With a 5-minute proof, the banner counts down and flips to **Expired** with no reload.
-- [ ] Auditor login → `/audit` → the org appears → **Decrypt the books** → amounts show → **Export CSV** downloads. The network tab shows no upload.
+- [ ] Auditor login → `/audit` → the org appears → **Decrypt the books** → Monthly, Set aside and Withdrawn show → **Export CSV** downloads. The network tab shows no upload.
 
 Once these pass: tick 12 in `build-guide/README.md`.
 
