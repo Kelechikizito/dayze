@@ -3,7 +3,7 @@
 import { useSendTransaction, useWallets } from "@privy-io/react-auth";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
-import { encodeFunctionData, type Hex, type TransactionReceipt } from "viem";
+import { BaseError, ContractFunctionRevertedError, encodeFunctionData, type Hex, type TransactionReceipt } from "viem";
 import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import type { TxStage } from "@/components/TxStatus";
 import { addTx } from "@/lib/txLog";
@@ -40,6 +40,9 @@ export function shortError(e: unknown): string {
     return "Your wallet has no ETH for gas. Send it a little testnet ETH (0.005 is plenty), then try again.";
   }
   // Privy's embedded wallet signs only with a live login session; it expires during long detours (World App, idle tabs)
+  if (/FHERC20ZeroBalance/.test(text)) {
+    return "This wallet has none of that confidential token yet. Withdraw your salary first, then cash out.";
+  }
   if (/invalid auth token|session.*expired|not authenticated/i.test(text)) {
     return "Your login session expired. Log out, log back in with the same account, then try again.";
   }
@@ -103,6 +106,8 @@ export function useTx(log?: string) {
         //   legacy gasPrice.
         const [estimate, gasPrice] = await Promise.all([
           publicClient.estimateContractGas({ ...(params as object), account: address } as never).catch((e) => {
+            // A revert fails the same way on-chain; sending anyway makes the wallet guess a huge gas limit
+            if (e instanceof BaseError && e.walk((c) => c instanceof ContractFunctionRevertedError)) throw e;
             console.warn("[dayze] gas estimate failed; the wallet will estimate", e);
             return undefined;
           }),
