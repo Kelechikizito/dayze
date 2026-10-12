@@ -248,7 +248,12 @@ function StreamsTable() {
                   <SecretValue handle={s.monthly} unit={symbolOf(s.token)} />
                 </td>
                 <td className="py-3">
-                  {s.startTime > BigInt(0) ? new Date(Number(s.startTime) * 1000).toLocaleString() : "—"}
+                  {s.startTime > BigInt(0) ? (
+                    new Date(Number(s.startTime) * 1000).toLocaleString()
+                  ) : (
+                    // Pay starts at activation, not at creation
+                    <span className="text-soft-charcoal">{s.status === StreamStatus.Pending ? "once approved" : s.status === StreamStatus.Cancelled ? "never" : "not yet"}</span>
+                  )}
                 </td>
                 <td className="py-3 text-right">
                   <div className="flex justify-end gap-2">
