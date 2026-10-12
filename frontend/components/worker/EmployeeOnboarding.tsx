@@ -45,7 +45,8 @@ export function EmployeeOnboarding({ org }: { org?: string }) {
   const { rows, count: allStreams } = useStreamsOfPayee(10_000);
   // From an invite, only the inviting org's stream counts: streams from other orgs must not skip onboarding
   const count = orgAddress ? rows.filter((r) => r.payer.toLowerCase() === orgAddress.toLowerCase()).length : allStreams;
-  const [shared, setShared] = useState(() => readFlag(account, "shared-address"));
+  const sharedKey = orgAddress ? `shared-address:${orgAddress.toLowerCase()}` : "shared-address";
+  const [shared, setShared] = useState(() => readFlag(account, sharedKey));
 
   // A stream exists: onboarding is over
   useEffect(() => {
@@ -98,7 +99,7 @@ export function EmployeeOnboarding({ org }: { org?: string }) {
               <AddressShare
                 address={account}
                 onShared={() => {
-                  writeFlag(account, "shared-address");
+                  writeFlag(account, sharedKey);
                   setShared(true);
                 }}
               />
