@@ -88,7 +88,8 @@ export function Providers({ children }: { children: ReactNode }) {
         loginMethods: ["email", "google", "wallet"],
         defaultChain: privyChains.find((c) => c.id === defaultChain.id) ?? defaultChain,
         supportedChains: privyChains,
-        embeddedWallets: { ethereum: { createOnLogin: "users-without-wallets" } },
+        // No confirm pop-ups for embedded wallets: gas is sponsored, and each action already shows its own progress
+        embeddedWallets: { ethereum: { createOnLogin: "users-without-wallets" }, showWalletUIs: false },
         appearance: { theme: "light", accentColor: "#17150e" },
       }}
     >
