@@ -42,7 +42,9 @@ export function EmployeeOnboarding({ org }: { org?: string }) {
   const orgName = useOrgName(orgAddress);
   const isHuman = useIsHuman();
   const requested = useHasRequested(orgAddress);
-  const { count } = useStreamsOfPayee(10_000);
+  const { rows, count: allStreams } = useStreamsOfPayee(10_000);
+  // From an invite, only the inviting org's stream counts: streams from other orgs must not skip onboarding
+  const count = orgAddress ? rows.filter((r) => r.payer.toLowerCase() === orgAddress.toLowerCase()).length : allStreams;
   const [shared, setShared] = useState(() => readFlag(account, "shared-address"));
 
   // A stream exists: onboarding is over
