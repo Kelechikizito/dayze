@@ -168,6 +168,7 @@ function OrgBooks({ payer }: { payer: Address }) {
       const jobs: [string, Hex][] = [
         ...b.streams.flatMap((s): [string, Hex][] => [
           [`m${s.id}`, s.monthly],
+          [`a${s.id}`, s.allocated],
           [`w${s.id}`, s.withdrawn],
         ]),
         ...b.vaults.map((v): [string, Hex] => [`v${v.symbol}`, v.handle]),
@@ -189,33 +190,37 @@ function OrgBooks({ payer }: { payer: Address }) {
     }
   };
 
-  // `withdrawn` starts as an encrypted 0 that auditors aren't granted; every withdrawal re-grants it.
-  // So if you could read the salary (you were auditor at creation) but not `withdrawn`, nothing was withdrawn yet.
-  const withdrawnCell = (s: StreamRow): Cell | undefined => {
-    const w = cells[`w${s.id}`];
-    return w === "no-access" && typeof cells[`m${s.id}`] === "bigint" ? BigInt(0) : w;
+  // `withdrawn` and `allocated` start as encrypted 0s that auditors aren't granted; every withdrawal
+  // or payroll run re-grants them. So if you could read the salary (you were auditor at creation) but
+  // not one of these, it's still 0.
+  const zeroUnlessChanged = (s: StreamRow, prefix: "w" | "a"): Cell | undefined => {
+    const c = cells[`${prefix}${s.id}`];
+    return c === "no-access" && typeof cells[`m${s.id}`] === "bigint" ? BigInt(0) : c;
   };
+  const withdrawnCell = (s: StreamRow) => zeroUnlessChanged(s, "w");
+  const allocatedCell = (s: StreamRow) => zeroUnlessChanged(s, "a");
   const show = (cell: Cell | undefined) =>
     cell === undefined ? "••••••" : cell === "pending" ? "decrypting…" : cell === "no-access" ? "🔒 no access" : formatConfidential(cell);
   const csvValue = (cell: Cell | undefined) => (typeof cell === "bigint" ? formatConfidential(cell) : cell === "no-access" ? "no access" : "");
 
   const exportCsv = () => {
-    const header = ["stream", "payee", "token", "status", "monthly", "withdrawn", "started"];
+    const header = ["stream", "payee", "token", "status", "monthly", "set aside (latest run)", "withdrawn", "started"];
     const rows = b.streams.map((s) => [
       String(s.id),
       s.payee,
       symbolOf(s.token),
       statusLabel[s.status] ?? String(s.status),
       csvValue(cells[`m${s.id}`]),
+      csvValue(allocatedCell(s)),
       csvValue(withdrawnCell(s)),
       s.startTime > BigInt(0) ? new Date(Number(s.startTime) * 1000).toISOString() : "",
     ]);
-    const vaultRows = b.vaults.map((v) => [`vault`, payer, v.symbol, "", "", "", "", csvValue(cells[`v${v.symbol}`])]);
+    const vaultRows = b.vaults.map((v) => [`vault`, payer, v.symbol, "", "", "", "", "", csvValue(cells[`v${v.symbol}`])]);
     const csv = [
       header,
       ...rows,
       [],
-      ["vault", "payer", "token", "", "", "", "", "balance"],
+      ["vault", "payer", "token", "", "", "", "", "", "balance"],
       ...vaultRows,
     ]
       .map((r) => r.map((x) => `"${String(x).replace(/"/g, '""')}"`).join(","))
@@ -251,13 +256,14 @@ function OrgBooks({ payer }: { payer: Address }) {
               <th className="py-2 font-normal">Token</th>
               <th className="py-2 font-normal">Status</th>
               <th className="py-2 font-normal">Monthly</th>
+              <th className="py-2 font-normal">Set aside</th>
               <th className="py-2 font-normal">Withdrawn</th>
             </tr>
           </thead>
           <tbody>
             {b.streams.length === 0 ? (
               <tr>
-                <td colSpan={6} className="border-t-[1.5px] border-gloss-black/10 py-4 text-caption text-mid-grey">
+                <td colSpan={7} className="border-t-[1.5px] border-gloss-black/10 py-4 text-caption text-mid-grey">
                   No salary streams yet.
                 </td>
               </tr>
@@ -269,6 +275,7 @@ function OrgBooks({ payer }: { payer: Address }) {
                   <td className="py-3">{symbolOf(s.token)}</td>
                   <td className="py-3">{s.status === StreamStatus.None ? "—" : statusLabel[s.status]}</td>
                   <td className="py-3 tabular-nums">{show(cells[`m${s.id}`])}</td>
+                  <td className="py-3 tabular-nums">{show(allocatedCell(s))}</td>
                   <td className="py-3 tabular-nums">{show(withdrawnCell(s))}</td>
                 </tr>
               ))
