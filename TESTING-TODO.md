@@ -31,14 +31,14 @@ Manual checks that are waiting on you. Tick them off as you go.
 Go to http://localhost:3000/onboarding/employer.
 
 - [ ] Create your organisation.
-- [ ] Fund: Mint 10,000 test USDC → Shield 5000 → Allow payroll → Fund privately 5000. The vault balance should reveal as 5000 cUSDC.
+- [ ] Fund: type 5000 → **Add to payroll**. It runs every step by itself (mint, approve, encrypt, connect, fund) with no wallet pop-ups. The vault should reveal as 5000 USDC.
 - [ ] Set approvers (your address plus one other wallet, 2 of 2) and a cUSDC threshold of 10000.
 - [ ] Add an auditor. Copy the invite link.
 - [ ] Refresh mid-onboarding: the wizard should resume at the right step.
 - [ ] In `/employer`, create a 3,000 cUSDC stream. It should go **Active** on its own after "Checking policy privately…".
 - [ ] Create a 12,000 cUSDC stream. It should go **Needs approval**. Approve it from both approver wallets, then **Activate**.
 - [ ] A verified payee shows "✓ verified human"; an unverified one shows "not verified".
-- [ ] Every action shows the TxStatus stages, with no silent waits.
+- [ ] Every action shows the TxStatus stages, with no silent waits and no Privy confirm pop-ups.
 - [ ] If anything fails, copy the `[dayze] transaction failed` line from the browser console.
 
 Once these pass: tick 08, 09 and 10 in `build-guide/README.md`.

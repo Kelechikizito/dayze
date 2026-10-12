@@ -87,8 +87,8 @@ export function EmployerOnboarding() {
     {
       key: "fund",
       title: "Add funds",
-      help: "Shield tokens and move them into your private payroll vault.",
-      bullets: ["Shielding is a public deposit", "The vault balance is encrypted", "cUSDC, cARB or cETH"],
+      help: "Type an amount and click once. Dayze encrypts it and moves it into your private payroll vault.",
+      bullets: ["USDC, ARB or ETH", "The deposit is public, the vault balance is encrypted", "No gas to pay"],
       icon: <StepIcon name="vault" />,
       status: statusOf("fund"),
       content: <FundSection />,
