@@ -2,19 +2,19 @@
 // Keyed by chain id: 84532 = Base Sepolia.
 export const addresses = {
   "84532": {
-    "approvalPolicy": "0x3d2B7DF01ac8D8aB729E4998FC4BcDb02436Ba78",
-    "arb": "0x551904f44630B7C2ac9BBf81db795928Cc329E86",
-    "auditRegistry": "0x8529e281E8dB02fBE76a3ebe85a909b5eAbaAf77",
-    "carb": "0x12F9FF86633d0633cB91c7992018f503ab2dfEd6",
-    "ceth": "0x213d51712c33C0e449E02e3A47aCd75634231454",
-    "cusdc": "0xbEDdCB7B043BbF075264C8E642f1161E1c58726B",
-    "deployBlock": 47880944,
-    "humanRegistry": "0xfC2b497D63a68ED186f7D2BdE49Ad7c9C2Dd6B20",
-    "incomeCredential": "0x34635634F32127c4A51E74eE3e0E3B223a13d80E",
-    "joinRequests": "0xc356dA49AeF6D7C486d3e3b1456fb7880a21Cf4b",
-    "payroll": "0x11Be620B96a5516ad46CbFB8D1a25c5a67E8211F",
+    "approvalPolicy": "0x0a558146fB23F9bDF138440e191E573E4ed3dA89",
+    "arb": "0xe2e044CBDA704A5F6e0de3A84061101d7bb127E3",
+    "auditRegistry": "0x85F0Db319Cd689634Ad2012daa5ABBFAf3CdE8f2",
+    "carb": "0x7603Aa7d585b00a63036fDFa84bDB0a0FbB2b04c",
+    "ceth": "0xbd896ff7f281bDb9Ca71E88eB6aC72EEcACf3979",
+    "cusdc": "0xc2AbF7D3f44Ec03Aa23f4cE08339cE13F8F36674",
+    "deployBlock": 48010044,
+    "humanRegistry": "0x420ddf737d5B5742360129205b33311aeb69F7b5",
+    "incomeCredential": "0x99c09678A7f193dF3E636B6a5D160715DEE1b106",
+    "joinRequests": "0xC58C02D829DCeCB2B646Bf71163Ba1dAF2Ea3511",
+    "payroll": "0x4121Bc6A9BF72fDe36BED539F0A2E643394998E0",
     "period": 600,
-    "usdc": "0xce0c01B9c2E407af328eB25D06aea0f1929aaBC7"
+    "usdc": "0x953AD9dC75e355660e28b3FDA5307E588e9a95D0"
   }
 } as const;
 

@@ -242,6 +242,26 @@ export const DayzePayrollAbi = [
             "name": "needsApproval",
             "type": "bytes32",
             "internalType": "ebool"
+          },
+          {
+            "name": "allocated",
+            "type": "bytes32",
+            "internalType": "euint64"
+          },
+          {
+            "name": "banked",
+            "type": "bytes32",
+            "internalType": "euint64"
+          },
+          {
+            "name": "allocStart",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "allocEnd",
+            "type": "uint64",
+            "internalType": "uint64"
           }
         ]
       }
@@ -294,6 +314,25 @@ export const DayzePayrollAbi = [
   },
   {
     "type": "function",
+    "name": "periodEnd",
+    "inputs": [
+      {
+        "name": "timestamp",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "removeToken",
     "inputs": [
       {
@@ -330,6 +369,34 @@ export const DayzePayrollAbi = [
         "name": "sig",
         "type": "bytes",
         "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "runPayroll",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "contract IFHERC20"
+      },
+      {
+        "name": "budget",
+        "type": "bytes32",
+        "internalType": "externalEuint64"
+      },
+      {
+        "name": "proof",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "ids",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
       }
     ],
     "outputs": [],
@@ -518,6 +585,37 @@ export const DayzePayrollAbi = [
   },
   {
     "type": "event",
+    "name": "PayrollRun",
+    "inputs": [
+      {
+        "name": "payer",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": true,
+        "internalType": "contract IFHERC20"
+      },
+      {
+        "name": "periodEnd",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "streams",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "PolicyCheckRequested",
     "inputs": [
       {
@@ -683,6 +781,11 @@ export const DayzePayrollAbi = [
   },
   {
     "type": "error",
+    "name": "DayzePayroll__AlreadyFunded",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "DayzePayroll__AlreadyResolved",
     "inputs": []
   },
@@ -699,6 +802,11 @@ export const DayzePayrollAbi = [
   {
     "type": "error",
     "name": "DayzePayroll__NoOrg",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "DayzePayroll__NotActive",
     "inputs": []
   },
   {
@@ -744,6 +852,16 @@ export const DayzePayrollAbi = [
   {
     "type": "error",
     "name": "DayzePayroll__UnsupportedToken",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "DayzePayroll__VaultNotFunded",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "DayzePayroll__WrongToken",
     "inputs": []
   },
   {
