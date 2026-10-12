@@ -41,7 +41,9 @@ function ActiveWalletSync() {
   const { setActiveWallet } = useSetActiveWallet();
 
   useEffect(() => {
-    if (!authenticated || !ready || address || wallets.length === 0) return;
+    if (!authenticated || !ready || wallets.length === 0) return;
+    // Another login in another tab can leave wagmi on a wallet this login doesn't own; Privy then refuses to sign
+    if (address && wallets.some((w) => w.address.toLowerCase() === address.toLowerCase())) return;
     const preferred = wallets.find((w) => w.walletClientType === "privy") ?? wallets[0];
     // An injected wallet that's locked or hasn't approved this site rejects here; AppGate then offers a retry
     setActiveWallet(preferred).catch((e) => console.warn("[dayze] couldn't activate wallet", preferred.address, e));
