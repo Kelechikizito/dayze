@@ -8,7 +8,9 @@ import {IFHERC20} from "fhenix-confidential-contracts/interfaces/IFHERC20.sol";
  * @title IDayzePayroll
  * @author Kelechi Kizito Ugwu
  * @notice Encrypted salary streams paid from per-payer, per-token confidential vaults.
- * @dev Salaries, vaults and withdrawals are encrypted. Who pays whom, in which token, is public.
+ * @dev Salaries, vaults, payroll budgets and withdrawals are encrypted. Who pays whom, in which token, is public.
+ *      Money flows vault → payroll (once per period, `runPayroll`) → each stream's allocation → the payee.
+ *      A stream only ever streams what was set aside for it, so pay can't outrun the money.
  */
 interface IDayzePayroll {
     /*//////////////////////////////////////////////////////////////
@@ -38,9 +40,13 @@ interface IDayzePayroll {
         euint64 monthly; // encrypted monthly salary, in the token's 6-decimal units
         euint64 withdrawn;
         uint64 startTime; // set when it becomes Active
-        uint64 endTime; // set on cancel; accrual stops here
+        uint64 endTime; // set on cancel
         Status status;
         ebool needsApproval; // used in 06
+        euint64 allocated; // set aside by the latest `runPayroll`; streams from allocStart to allocEnd
+        euint64 banked; // set aside in earlier periods (or before a cancel), fully earned
+        uint64 allocStart; // when `allocated` starts streaming
+        uint64 allocEnd; // end of the period `allocated` is for; 0 if none
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -93,6 +99,13 @@ interface IDayzePayroll {
     /// @param id The stream id
     /// @param withdrawnHandle Handle to the new encrypted total withdrawn
     event Withdrawn(uint256 indexed id, bytes32 withdrawnHandle);
+
+    /// @notice Emitted when a payer sets money aside for a period. Carries no amounts.
+    /// @param payer The payer
+    /// @param token The wrapper paid in
+    /// @param periodEnd End of the period the money is for
+    /// @param streams How many streams were funded
+    event PayrollRun(address indexed payer, IFHERC20 indexed token, uint64 periodEnd, uint256 streams);
 
     /// @notice Emitted when a payer cancels a stream
     /// @param id The stream id
@@ -153,13 +166,25 @@ interface IDayzePayroll {
     /// @param id The stream to activate
     function activateApproved(uint256 id) external;
 
-    /// @notice Withdraws up to the accrued, unwithdrawn amount; pays 0 instead of reverting on over-withdrawal
+    /// @notice Sets this period's pay aside from the caller's vault. Each stream gets
+    ///         min(its salary for the rest of the period, what's left of the budget), in `ids` order.
+    /// @dev The budget is capped at the vault. Unused budget stays in the vault.
+    ///      A stream funded mid-period gets its salary pro rata for the time left.
+    ///      Run it again in the same period to fund streams that started after the first run.
+    /// @param token The wrapper to pay in
+    /// @param budget Encrypted most to set aside this period, in the token's 6-decimal units
+    /// @param proof Proof that verifies `budget`
+    /// @param ids Active streams of the caller in `token`, not yet funded this period
+    function runPayroll(IFHERC20 token, externalEuint64 budget, bytes calldata proof, uint256[] calldata ids) external;
+
+    /// @notice Withdraws up to the streamed, unwithdrawn amount; pays 0 instead of reverting on over-withdrawal
     /// @param id The stream to withdraw from
     /// @param amount Encrypted amount requested
     /// @param proof Proof that verifies `amount`
     function withdraw(uint256 id, externalEuint64 amount, bytes calldata proof) external;
 
-    /// @notice Cancels a stream at any stage and freezes accrual. Payer only.
+    /// @notice Cancels a stream at any stage. What it streamed stays the payee's; the rest of this
+    ///         period's allocation goes back to the vault. Payer only.
     /// @param id The stream to cancel
     function cancelStream(uint256 id) external;
 
@@ -196,4 +221,9 @@ interface IDayzePayroll {
     /// @param token The wrapper to look up
     /// @return The vault handle
     function vaultOf(address payer, IFHERC20 token) external view returns (euint64);
+
+    /// @notice Returns when the pay period containing `timestamp` ends
+    /// @param timestamp Any time
+    /// @return The period's end; periods are fixed `PERIOD`-long windows from time 0
+    function periodEnd(uint64 timestamp) external view returns (uint64);
 }

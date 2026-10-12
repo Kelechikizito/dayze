@@ -151,6 +151,41 @@ abstract contract PayrollTestBase is DayzeTestBase {
         _resolve(id);
     }
 
+    /// @notice Warps to the start of the next pay period, so a payroll run funds a full period
+    function _warpToPeriodStart() internal {
+        vm.warp(payroll.periodEnd(uint64(vm.getBlockTimestamp())));
+    }
+
+    /// @notice Runs payroll as the employer for one stream
+    /// @param token The wrapper to pay in
+    /// @param budget Most to set aside
+    /// @param id The stream to fund
+    function _runPayroll(IFHERC20 token, uint64 budget, uint256 id) internal {
+        uint256[] memory ids = new uint256[](1);
+        ids[0] = id;
+        _runPayroll(token, budget, ids);
+    }
+
+    /// @notice Runs payroll as the employer for several streams, funded in order
+    /// @param token The wrapper to pay in
+    /// @param budget Most to set aside
+    /// @param ids The streams to fund
+    function _runPayroll(IFHERC20 token, uint64 budget, uint256[] memory ids) internal {
+        (externalEuint64 h, bytes memory p) = _encrypt(employerClient, budget);
+        vm.prank(employer);
+        payroll.runPayroll(token, h, p, ids);
+    }
+
+    /// @notice Creates an Active stream at the start of a period and funds it for the whole period
+    /// @param token The wrapper to pay in
+    /// @param monthly Monthly salary, also the payroll budget
+    /// @return id The new stream id
+    function _createFundedStream(IFHERC20 token, uint64 monthly) internal returns (uint256 id) {
+        _warpToPeriodStart();
+        id = _createActiveStream(token, monthly);
+        _runPayroll(token, monthly, id);
+    }
+
     /// @notice Withdraws `amount` from stream `id` as alice
     /// @param id The stream
     /// @param amount Amount requested

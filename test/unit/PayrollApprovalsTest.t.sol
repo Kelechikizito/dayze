@@ -148,14 +148,16 @@ contract PayrollApprovalsTest is PayrollTestBase {
         payroll.activateApproved(id);
     }
 
-    /// @notice 3. Nothing accrues while Pending; accrual counts from activation
+    /// @notice 3. Nothing streams while Pending; once active and funded, pay streams from the payroll run
     function test_noAccrualWhilePending() public {
+        _warpToPeriodStart();
         uint256 id = _createStream(tUsdc, HIGH);
         _resolve(id);
 
         vm.warp(block.timestamp + DAY);
         _approveBoth(id);
         payroll.activateApproved(id);
+        _runPayroll(tUsdc, HIGH, id);
 
         _withdraw(id, 1); // nothing accrued yet
         assertEq(_aliceBalance(tUsdc), 0);

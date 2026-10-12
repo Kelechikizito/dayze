@@ -20,8 +20,12 @@ import {AuditAccess} from "src/libraries/AuditAccess.sol";
  * @title DayzePayroll
  * @author Kelechi Kizito Ugwu
  * @notice Encrypted salary streams paid from per-payer, per-token confidential vaults.
- * @dev Accrual is lazy: `monthly * elapsed / PERIOD`, computed in euint128 on each withdraw.
- *      Over-withdrawals and underfunded vaults pay 0 instead of reverting, so nothing leaks.
+ * @dev Money flows vault → payroll → stream → payee. Once per period the payer runs payroll with an
+ *      encrypted budget: each stream gets min(its salary for the rest of the period, budget left), and
+ *      that amount leaves the vault. A stream streams only its allocation, linearly to the period's end,
+ *      so pay never outruns the money. Finished periods move into `banked`, which stays withdrawable.
+ *      Streaming is lazy, computed in euint128 on each withdraw. Over-withdrawals pay 0 instead of
+ *      reverting, so nothing leaks.
  *      New streams wait in `AwaitingPolicy` until anyone posts the decrypted `needsApproval` bit.
  *      That bit is the only value ever made public: "this salary is above or below a hidden threshold".
  */
@@ -77,6 +81,18 @@ contract DayzePayroll is IDayzePayroll, Ownable {
     /// @notice Thrown when the credential contract is set a second time
     error DayzePayroll__CredentialAlreadySet();
 
+    /// @notice Thrown when running payroll for a stream that isn't Active
+    error DayzePayroll__NotActive();
+
+    /// @notice Thrown when running payroll for a stream paid in another token
+    error DayzePayroll__WrongToken();
+
+    /// @notice Thrown when running payroll for a stream already funded this period
+    error DayzePayroll__AlreadyFunded();
+
+    /// @notice Thrown when running payroll from a vault that was never funded
+    error DayzePayroll__VaultNotFunded();
+
     /*//////////////////////////////////////////////////////////////
                             STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
@@ -87,7 +103,8 @@ contract DayzePayroll is IDayzePayroll, Ownable {
     /// @notice Registry of each payer's auditors
     IAuditRegistry public immutable I_AUDIT_REGISTRY;
 
-    /// @notice Length of one pay period in seconds: 30 days in prod, e.g. 600 (10 min) for the demo
+    /// @notice Length of one pay period in seconds: 30 days in prod, e.g. 600 (10 min) for the demo.
+    ///         Periods are fixed windows from time 0, the same for every payer.
     uint64 public immutable PERIOD;
 
     /// @notice Confidential wrappers payroll accepts; owner-managed
@@ -176,11 +193,7 @@ contract DayzePayroll is IDayzePayroll, Ownable {
             token.confidentialTransferFrom(msg.sender, address(this), FHE.shareEuint64(amt, address(token)));
         euint64 moved = FHE.receiveEuint64FromCall(movedShared, address(token));
 
-        euint64 vault = FHE.add(s_vaults[msg.sender][token], moved);
-        s_vaults[msg.sender][token] = vault;
-        FHE.allowThis(vault);
-        FHE.allow(vault, msg.sender);
-        I_AUDIT_REGISTRY.allowAuditors(msg.sender, vault);
+        _setVault(msg.sender, token, FHE.add(s_vaults[msg.sender][token], moved));
 
         emit VaultFunded(msg.sender, token);
     }
@@ -202,18 +215,16 @@ contract DayzePayroll is IDayzePayroll, Ownable {
         // Streams created before `setCredential` can't get credentials; deploy sets it right away
         if (s_credential != address(0)) FHE.allow(monthlyAmt, s_credential);
 
-        euint64 withdrawn = FHE.asEuint64(0);
-        FHE.allowThis(withdrawn);
-        FHE.allow(withdrawn, payee);
-        FHE.allow(withdrawn, msg.sender);
-
         id = ++s_streamCount;
         Stream storage s = s_streams[id];
         s.payer = msg.sender;
         s.payee = payee;
         s.token = token;
         s.monthly = monthlyAmt;
-        s.withdrawn = withdrawn;
+        // Encrypted zeros the payee and payer can read; auditors get access once they change
+        s.withdrawn = _zeroFor(msg.sender, payee);
+        s.allocated = _zeroFor(msg.sender, payee);
+        s.banked = _zeroFor(msg.sender, payee);
 
         s_payerStreams[msg.sender].push(id);
         s_payeeStreams[payee].push(id);
@@ -258,39 +269,70 @@ contract DayzePayroll is IDayzePayroll, Ownable {
     }
 
     /// @inheritdoc IDayzePayroll
-    /// @dev Pays `req` only if it fits both the stream's available amount and the payer's vault
+    /// @dev Nothing here reveals whether the budget or vault ran short: every stream gets an allocation,
+    ///      possibly 0, and only the payee (and payer, auditors) can read theirs.
+    function runPayroll(IFHERC20 token, externalEuint64 budget, bytes calldata proof, uint256[] calldata ids)
+        external
+    {
+        if (!s_orgs[msg.sender].exists) revert DayzePayroll__NoOrg();
+
+        // forge-lint: disable-next-line(unsafe-typecast)
+        uint64 nowTs = uint64(block.timestamp);
+        uint64 end = _periodEnd(nowTs);
+        euint64 vault = s_vaults[msg.sender][token];
+        // Leaks nothing: `VaultFunded` already shows who funded which token. It also keeps `withdraw`'s
+        // "never funded" check true: only funding initializes a vault.
+        if (!FHE.isInitialized(vault)) revert DayzePayroll__VaultNotFunded();
+        euint64 pot = FHE.min(FHE.asEuint64(budget, proof), vault);
+        euint64 spent = FHE.asEuint64(0);
+
+        for (uint256 i; i < ids.length; ++i) {
+            Stream storage s = s_streams[ids[i]];
+            if (s.payer != msg.sender) revert DayzePayroll__NotPayer();
+            if (s.token != token) revert DayzePayroll__WrongToken();
+            if (s.status != Status.Active) revert DayzePayroll__NotActive();
+            if (s.allocEnd == end) revert DayzePayroll__AlreadyFunded();
+
+            // The last allocation's period is over, so all of it was earned
+            if (s.allocEnd != 0) _setBanked(s, FHE.add(s.banked, s.allocated));
+
+            euint64 want = _scale(s.monthly, end - nowTs, PERIOD);
+            euint64 give = FHE.min(want, pot);
+            pot = FHE.sub(pot, give);
+            spent = FHE.add(spent, give);
+
+            _setAllocated(s, give);
+            s.allocStart = nowTs;
+            s.allocEnd = end;
+        }
+
+        _setVault(msg.sender, token, FHE.sub(vault, spent));
+        emit PayrollRun(msg.sender, token, end, ids.length);
+    }
+
+    /// @inheritdoc IDayzePayroll
+    /// @dev No vault check: what a stream streams was already set aside out of the vault
     function withdraw(uint256 id, externalEuint64 amount, bytes calldata proof) external {
         Stream storage s = s_streams[id];
         if (msg.sender != s.payee) revert DayzePayroll__NotPayee();
         if (s.status != Status.Active && s.status != Status.Cancelled) revert DayzePayroll__NotWithdrawable();
 
         euint64 req = FHE.asEuint64(amount, proof);
-        euint64 available = FHE.sub(_accrued(s), s.withdrawn); // withdrawn <= accrued always
-        euint64 vault = s_vaults[s.payer][s.token];
-        ebool ok = FHE.and(FHE.lte(req, available), FHE.lte(req, vault));
-        euint64 pay = FHE.select(ok, req, FHE.asEuint64(0));
+        euint64 available = FHE.sub(_streamed(s), s.withdrawn); // withdrawn <= streamed always
+        euint64 pay = FHE.select(FHE.lte(req, available), req, FHE.asEuint64(0));
 
         euint64 withdrawn = FHE.add(s.withdrawn, pay);
         s.withdrawn = withdrawn;
-        FHE.allowThis(withdrawn);
-        FHE.allow(withdrawn, s.payee);
-        FHE.allow(withdrawn, s.payer);
-        I_AUDIT_REGISTRY.allowAuditors(s.payer, withdrawn);
-
-        euint64 newVault = FHE.sub(vault, pay);
-        s_vaults[s.payer][s.token] = newVault;
-        FHE.allowThis(newVault);
-        FHE.allow(newVault, s.payer);
-        I_AUDIT_REGISTRY.allowAuditors(s.payer, newVault);
+        _allowStream(s, withdrawn);
 
         emit Withdrawn(id, euint64.unwrap(withdrawn));
 
-        // A never-funded vault means `pay` is 0, and the token reverts on a sender with no balance.
-        // Skipping leaks nothing: `VaultFunded` already shows who funded which token.
-        if (!FHE.isInitialized(vault)) return;
+        // A never-funded vault means nothing was set aside, so `pay` is 0, and the token reverts
+        // on a sender with no balance. Skipping leaks nothing: `VaultFunded` already shows who funded what.
+        if (!FHE.isInitialized(s_vaults[s.payer][s.token])) return;
 
         FHE.allowThis(pay);
-        // The returned amount equals `pay`: the vault check above keeps payroll's pooled balance >= pay
+        // The returned amount equals `pay`: allocations come out of funded vaults, so payroll holds >= pay
         // forge-lint: disable-next-line(unused-return)
         s.token.confidentialTransfer(s.payee, FHE.shareEuint64(pay, address(s.token)));
     }
@@ -301,7 +343,16 @@ contract DayzePayroll is IDayzePayroll, Ownable {
         if (msg.sender != s.payer) revert DayzePayroll__NotPayer();
         if (s.status == Status.Cancelled) revert DayzePayroll__NotCancellable();
 
-        // A stream that never went Active has startTime 0; end there too so it accrues nothing
+        // Bank what the allocation streamed so far; the rest goes back to the vault
+        if (s.allocEnd != 0) {
+            euint64 earned = _allocationStreamed(s);
+            _setBanked(s, FHE.add(s.banked, earned));
+            _setVault(s.payer, s.token, FHE.add(s_vaults[s.payer][s.token], FHE.sub(s.allocated, earned)));
+            _setAllocated(s, FHE.asEuint64(0));
+            s.allocEnd = 0;
+        }
+
+        // A stream that never went Active has startTime 0; end there too
         // forge-lint: disable-next-line(unsafe-typecast)
         s.endTime = s.status == Status.Active ? uint64(block.timestamp) : s.startTime;
         s.status = Status.Cancelled;
@@ -322,18 +373,90 @@ contract DayzePayroll is IDayzePayroll, Ownable {
         emit StreamActivated(id, s.startTime);
     }
 
-    /// @notice Computes the total amount a stream has accrued so far
-    /// @dev Lazy: no state change. Elapsed time is plaintext; only the salary is encrypted.
-    ///      Done in euint128 so `monthly * elapsed` can't overflow and nothing truncates per second.
-    ///      Cancelled streams stop accruing at `endTime`.
+    /// @notice Total a stream has streamed so far: everything banked plus its live allocation's share
     /// @param s The stream
-    /// @return Encrypted `monthly * elapsed / PERIOD`, in the token's units
-    function _accrued(Stream storage s) internal returns (euint64) {
+    /// @return Encrypted amount, in the token's units
+    function _streamed(Stream storage s) internal returns (euint64) {
+        if (s.allocEnd == 0) return s.banked;
+        return FHE.add(s.banked, _allocationStreamed(s));
+    }
+
+    /// @notice How much of the current allocation has streamed: linear from `allocStart` to `allocEnd`
+    /// @dev Lazy: no state change. Times are plaintext; only the amount is encrypted.
+    /// @param s The stream; must have an allocation
+    /// @return Encrypted amount, all of `allocated` once its period is over
+    function _allocationStreamed(Stream storage s) internal returns (euint64) {
         // forge-lint: disable-next-line(unsafe-typecast)
-        uint64 end = s.status == Status.Cancelled ? s.endTime : uint64(block.timestamp);
-        uint64 elapsed = end - s.startTime;
-        euint128 total = FHE.mul(FHE.asEuint128(s.monthly), FHE.asEuint128(uint256(elapsed)));
-        return FHE.asEuint64(FHE.div(total, FHE.asEuint128(uint256(PERIOD))));
+        uint64 nowTs = uint64(block.timestamp);
+        if (nowTs >= s.allocEnd) return s.allocated;
+        return _scale(s.allocated, nowTs - s.allocStart, s.allocEnd - s.allocStart);
+    }
+
+    /// @notice `amount * num / den` without overflow or per-second truncation
+    /// @dev In euint128 so `amount * num` can't overflow. `num <= den` everywhere it's used.
+    /// @param amount Encrypted amount
+    /// @param num Plaintext numerator
+    /// @param den Plaintext denominator, non-zero
+    /// @return Encrypted result
+    function _scale(euint64 amount, uint64 num, uint64 den) internal returns (euint64) {
+        euint128 total = FHE.mul(FHE.asEuint128(amount), FHE.asEuint128(uint256(num)));
+        return FHE.asEuint64(FHE.div(total, FHE.asEuint128(uint256(den))));
+    }
+
+    /// @notice End of the pay period containing `timestamp`
+    /// @param timestamp Any time
+    /// @return The next multiple of `PERIOD` after `timestamp`
+    function _periodEnd(uint64 timestamp) internal view returns (uint64) {
+        return (timestamp / PERIOD + 1) * PERIOD;
+    }
+
+    /// @notice An encrypted 0 that payroll, the payer and the payee can use
+    /// @param payer The stream's payer
+    /// @param payee The stream's payee
+    /// @return The handle
+    function _zeroFor(address payer, address payee) internal returns (euint64) {
+        euint64 zero = FHE.asEuint64(0);
+        FHE.allowThis(zero);
+        FHE.allow(zero, payee);
+        FHE.allow(zero, payer);
+        return zero;
+    }
+
+    /// @notice Lets payroll, the payee, the payer and the payer's auditors read a stream value
+    /// @param s The stream
+    /// @param value The handle
+    function _allowStream(Stream storage s, euint64 value) internal {
+        FHE.allowThis(value);
+        FHE.allow(value, s.payee);
+        FHE.allow(value, s.payer);
+        I_AUDIT_REGISTRY.allowAuditors(s.payer, value);
+    }
+
+    /// @notice Stores a stream's allocation and grants access to it
+    /// @param s The stream
+    /// @param value The new allocation
+    function _setAllocated(Stream storage s, euint64 value) internal {
+        s.allocated = value;
+        _allowStream(s, value);
+    }
+
+    /// @notice Stores a stream's banked total and grants access to it
+    /// @param s The stream
+    /// @param value The new banked total
+    function _setBanked(Stream storage s, euint64 value) internal {
+        s.banked = value;
+        _allowStream(s, value);
+    }
+
+    /// @notice Stores a payer's vault balance and grants access to it
+    /// @param payer The payer
+    /// @param token The wrapper
+    /// @param value The new balance
+    function _setVault(address payer, IFHERC20 token, euint64 value) internal {
+        s_vaults[payer][token] = value;
+        FHE.allowThis(value);
+        FHE.allow(value, payer);
+        I_AUDIT_REGISTRY.allowAuditors(payer, value);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -368,5 +491,10 @@ contract DayzePayroll is IDayzePayroll, Ownable {
     /// @inheritdoc IDayzePayroll
     function vaultOf(address payer, IFHERC20 token) external view returns (euint64) {
         return s_vaults[payer][token];
+    }
+
+    /// @inheritdoc IDayzePayroll
+    function periodEnd(uint64 timestamp) external view returns (uint64) {
+        return _periodEnd(timestamp);
     }
 }
