@@ -10,8 +10,8 @@ import { useTx } from "@/hooks/useTx";
 import { HumanRegistryAbi } from "@/lib/contracts/abis";
 import { WORLDID_ACTION, signalFor, worldIdErrorMessage, type AttestResponse, type RpSignatureResponse } from "@/lib/worldid";
 
-/** Whether the connected wallet is registered in HumanRegistry */
-export function useIsHuman() {
+/** Whether the connected wallet is registered in HumanRegistry, or undefined while that's being read */
+export function useHumanStatus(): boolean | undefined {
   const { account, d } = useDayze();
   const { data } = useReadContract({
     address: d?.humanRegistry,
@@ -20,7 +20,12 @@ export function useIsHuman() {
     args: account ? [account] : undefined,
     query: { enabled: !!account && !!d },
   });
-  return data ?? false;
+  return data;
+}
+
+/** Whether the connected wallet is registered in HumanRegistry (false while loading) */
+export function useIsHuman() {
+  return useHumanStatus() ?? false;
 }
 
 const pendingKey = (chainId: number | undefined, wallet: string) => `dayze:attestation:${chainId}:${wallet.toLowerCase()}`;
