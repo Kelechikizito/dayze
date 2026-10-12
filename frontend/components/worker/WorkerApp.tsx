@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Badge, Button, ButtonLink } from "@/components/ui";
 import { ACP_EXPLAINER, useEnsureACP } from "@/hooks/useEnsureACP";
+import { useGasSponsored } from "@/hooks/useTx";
 import { CashOutSection } from "./CashOutSection";
 import { CredentialsSection } from "./CredentialsSection";
 import { useStreamsOfPayee } from "./hooks";
@@ -11,6 +13,14 @@ import { StreamCard } from "./StreamCard";
 export function WorkerApp() {
   const { rows, isLoading } = useStreamsOfPayee(15_000);
   const { hasACP, status, error, ensureACP } = useEnsureACP();
+  // Embedded wallets sign silently, so unlock the pay on arrival. External wallets (MetaMask) keep the button.
+  const embedded = useGasSponsored();
+  const tried = useRef(false);
+  useEffect(() => {
+    if (!embedded || hasACP || tried.current || rows.length === 0) return;
+    tried.current = true;
+    void ensureACP().catch(() => undefined);
+  }, [embedded, hasACP, rows.length, ensureACP]);
 
   if (isLoading) return <p className="py-10 text-mid-grey">Loading your pay…</p>;
 

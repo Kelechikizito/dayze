@@ -8,7 +8,6 @@ import { OnboardingWizard, StepIcon, type WizardStep } from "@/components/Onboar
 import type { StepStatus } from "@/components/Stepper";
 import { Button } from "@/components/ui";
 import { useDayze } from "@/hooks/useDayze";
-import { ACP_EXPLAINER, useEnsureACP } from "@/hooks/useEnsureACP";
 import { markOnboarded } from "@/lib/routing";
 import { useOrgName, useStreamsOfPayee } from "./hooks";
 import { RequestPay, useHasRequested } from "./RequestPay";
@@ -43,7 +42,6 @@ export function EmployeeOnboarding({ org }: { org?: string }) {
   const orgName = useOrgName(orgAddress);
   const isHuman = useIsHuman();
   const requested = useHasRequested(orgAddress);
-  const { hasACP, status: acpStatus, error: acpError, ensureACP } = useEnsureACP();
   const { count } = useStreamsOfPayee(10_000);
   const [shared, setShared] = useState(() => readFlag(account, "shared-address"));
 
@@ -55,8 +53,9 @@ export function EmployeeOnboarding({ org }: { org?: string }) {
     }
   }, [count, router]);
 
-  const done = { human: isHuman, acp: hasACP, address: requested || shared };
-  const order = ["human", "acp", "address", "wait"] as const;
+  // Decrypting needs a one-time signature; the worker app asks for it when it's first needed, not here
+  const done = { human: isHuman, address: requested || shared };
+  const order = ["human", "address", "wait"] as const;
   // The Selfie Check is required: nothing after it opens until the wallet is a verified human
   const activeKey = order.find((k) => (k === "wait" ? true : !done[k]));
   const statusOf = (k: (typeof order)[number]): StepStatus =>
@@ -78,25 +77,6 @@ export function EmployeeOnboarding({ org }: { org?: string }) {
       icon: <StepIcon name="human" />,
       status: statusOf("human"),
       content: <WorldIdVerify />,
-    },
-    {
-      key: "acp",
-      title: "Unlock your private data",
-      help: "Your salary is encrypted. One signature lets this browser decrypt what's yours.",
-      bullets: ["A signature, not a transaction", "No gas, nothing sent onchain"],
-      icon: <StepIcon name="eye" />,
-      status: statusOf("acp"),
-      content: (
-        <div className="flex flex-col gap-3">
-          <p className="text-caption text-soft-charcoal">{ACP_EXPLAINER}</p>
-          <div>
-            <Button onClick={() => void ensureACP().catch(() => undefined)} disabled={acpStatus === "signing"}>
-              {acpStatus === "signing" ? "Waiting for signature…" : "Unlock"}
-            </Button>
-          </div>
-          {acpError && <p className="text-caption text-soft-charcoal">{acpError.message}</p>}
-        </div>
-      ),
     },
     {
       key: "address",
