@@ -2,7 +2,7 @@
 
 import { useCofheClient } from "@cofhe/react";
 import { useCallback } from "react";
-import type { Address, Hex } from "viem";
+import type { Address, Hex, PublicClient } from "viem";
 import { usePublicClient, useReadContract, useReadContracts } from "wagmi";
 import { useDayze } from "@/hooks/useDayze";
 import type { useTx } from "@/hooks/useTx";
@@ -32,6 +32,30 @@ export type StreamRow = {
   status: number;
   needsApproval: Hex;
 };
+
+const SCAN_BATCH = 50;
+
+/**
+ * Every stream ever created, oldest first. For views with no onchain index to start from
+ * (approvers, auditors). Event logs can't be used: RPCs cap eth_getLogs at 10 (Alchemy free) or
+ * 200 (public) blocks. Stream ids run 1, 2, 3…, so this reads them in batches until one comes back
+ * empty. Fine at demo scale; checkpoint 13 swaps in a subgraph.
+ */
+export async function scanAllStreams(publicClient: PublicClient, payroll: Address): Promise<StreamRow[]> {
+  const all: StreamRow[] = [];
+  for (let start = 1; ; start += SCAN_BATCH) {
+    const ids = Array.from({ length: SCAN_BATCH }, (_, i) => BigInt(start + i));
+    const batch = await publicClient.multicall({
+      contracts: ids.map((id) => ({ address: payroll, abi: DayzePayrollAbi, functionName: "getStream" as const, args: [id] as const })),
+      allowFailure: false,
+    });
+    const rows = batch.map((s, i) => ({ id: ids[i], ...(s as Omit<StreamRow, "id">) }));
+    const end = rows.findIndex((s) => s.status === StreamStatus.None);
+    // An empty stream means we're past the last id
+    if (end !== -1) return [...all, ...rows.slice(0, end)];
+    all.push(...rows);
+  }
+}
 
 /**
  * The connected employer's streams, newest first.

@@ -3,10 +3,10 @@
 import { useCofheClient } from "@cofhe/react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { getAbiItem, isAddress, type Address, type Hex } from "viem";
+import { isAddress, type Address, type Hex } from "viem";
 import { usePublicClient } from "wagmi";
 import { shortAddress } from "@/components/AuthButton";
-import { StreamStatus, statusLabel, type StreamRow } from "@/components/employer/streams";
+import { scanAllStreams, StreamStatus, statusLabel, type StreamRow } from "@/components/employer/streams";
 import { Field, Input, Panel, PillPicker } from "@/components/forms";
 import { Button } from "@/components/ui";
 import { useDayze } from "@/hooks/useDayze";
@@ -21,7 +21,7 @@ type Cell = bigint | "no-access" | "pending";
 
 type Books = {
   orgName: string;
-  streams: (StreamRow & { everWithdrawn: boolean })[];
+  streams: StreamRow[];
   vaults: { symbol: string; handle: Hex }[];
 };
 
@@ -35,19 +35,14 @@ export function AuditorView() {
   const [typed, setTyped] = useState("");
   const [picked, setPicked] = useState<Address>();
 
-  // Orgs that ever added me, still current
+  // Orgs that name me as auditor. No index of "orgs I audit" and no log search (RPC block-range caps),
+  // so it checks every employer that has a stream. One with no streams yet: type its address below.
   const appointed = useQuery({
     queryKey: ["audit-orgs", d?.auditRegistry, account],
     enabled: !!publicClient && !!account && !!d,
     queryFn: async () => {
-      const logs = await publicClient!.getLogs({
-        address: d!.auditRegistry,
-        event: getAbiItem({ abi: AuditRegistryAbi, name: "AuditorAdded" }),
-        args: { auditor: account },
-        fromBlock: BigInt(d!.deployBlock),
-        toBlock: "latest",
-      });
-      const payers = [...new Set(logs.map((l) => l.args.payer).filter((p): p is Address => !!p))];
+      const streams = await scanAllStreams(publicClient!, d!.payroll);
+      const payers = [...new Set(streams.map((s) => s.payer))];
       const rows = await Promise.all(
         payers.map(async (payer) => {
           const [still, org] = await Promise.all([
@@ -69,8 +64,13 @@ export function AuditorView() {
       <Panel title="Organisations you audit" help="An employer adds you as their auditor. You can read their payroll from that moment on.">
         {appointed.isLoading ? (
           <p className="text-caption text-mid-grey">Looking for organisations…</p>
+        ) : appointed.error ? (
+          <p className="text-caption text-soft-charcoal">Couldn&apos;t look for organisations: {shortError(appointed.error)}</p>
         ) : orgs.length === 0 ? (
-          <p className="text-caption text-mid-grey">No employer has named you yet. Send them your address: {account}</p>
+          <p className="text-caption text-mid-grey">
+            No employer with salary streams has named you yet. Send them your address: {account}. If they have no streams
+            yet, enter their address below.
+          </p>
         ) : (
           <PillPicker
             options={orgs.map((o) => ({ value: o.payer, label: o.name }))}
@@ -126,17 +126,6 @@ function OrgBooks({ payer }: { payer: Address }) {
           ...((await read({ address: d!.payroll, abi: DayzePayrollAbi, functionName: "getStream", args: [id] })) as Omit<StreamRow, "id">),
         })),
       );
-      // `withdrawn` starts as an encrypted 0 that auditors aren't granted; with no Withdrawn event it's still 0
-      const withdrawLogs = ids.length
-        ? await publicClient!.getLogs({
-            address: d!.payroll,
-            event: getAbiItem({ abi: DayzePayrollAbi, name: "Withdrawn" }),
-            args: { id: [...ids] },
-            fromBlock: BigInt(d!.deployBlock),
-            toBlock: "latest",
-          })
-        : [];
-      const withdrawnIds = new Set(withdrawLogs.map((l) => String(l.args.id)));
       const vaults = await Promise.all(
         tokens.map(async (t) => ({
           symbol: t.symbol,
@@ -146,7 +135,7 @@ function OrgBooks({ payer }: { payer: Address }) {
       return {
         allowed,
         orgName: org.exists ? org.name : shortAddress(payer),
-        streams: streams.reverse().map((s) => ({ ...s, everWithdrawn: withdrawnIds.has(String(s.id)) })),
+        streams: streams.reverse(),
         vaults,
       };
     },
@@ -154,7 +143,13 @@ function OrgBooks({ payer }: { payer: Address }) {
 
   const b = books.data;
   if (books.isLoading) return <p className="text-caption text-mid-grey">Reading {shortAddress(payer)}&apos;s payroll…</p>;
-  if (!b) return <p className="text-caption text-soft-charcoal">Couldn&apos;t read this payroll.</p>;
+  if (!b) {
+    return (
+      <p className="text-caption text-soft-charcoal">
+        Couldn&apos;t read this payroll{books.error ? `: ${shortError(books.error)}` : "."}
+      </p>
+    );
+  }
   if (!b.allowed) {
     return (
       <Panel title={b.orgName} help="">
@@ -173,7 +168,7 @@ function OrgBooks({ payer }: { payer: Address }) {
       const jobs: [string, Hex][] = [
         ...b.streams.flatMap((s): [string, Hex][] => [
           [`m${s.id}`, s.monthly],
-          ...(s.everWithdrawn ? ([[`w${s.id}`, s.withdrawn]] as [string, Hex][]) : []),
+          [`w${s.id}`, s.withdrawn],
         ]),
         ...b.vaults.map((v): [string, Hex] => [`v${v.symbol}`, v.handle]),
       ];
@@ -194,7 +189,12 @@ function OrgBooks({ payer }: { payer: Address }) {
     }
   };
 
-  const withdrawnCell = (s: Books["streams"][number]): Cell | undefined => (s.everWithdrawn ? cells[`w${s.id}`] : BigInt(0));
+  // `withdrawn` starts as an encrypted 0 that auditors aren't granted; every withdrawal re-grants it.
+  // So if you could read the salary (you were auditor at creation) but not `withdrawn`, nothing was withdrawn yet.
+  const withdrawnCell = (s: StreamRow): Cell | undefined => {
+    const w = cells[`w${s.id}`];
+    return w === "no-access" && typeof cells[`m${s.id}`] === "bigint" ? BigInt(0) : w;
+  };
   const show = (cell: Cell | undefined) =>
     cell === undefined ? "••••••" : cell === "pending" ? "decrypting…" : cell === "no-access" ? "🔒 no access" : formatConfidential(cell);
   const csvValue = (cell: Cell | undefined) => (typeof cell === "bigint" ? formatConfidential(cell) : cell === "no-access" ? "no access" : "");

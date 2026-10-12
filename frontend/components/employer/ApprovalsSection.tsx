@@ -1,23 +1,22 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { getAbiItem, type Address } from "viem";
+import type { Address } from "viem";
 import { usePublicClient } from "wagmi";
 import { shortAddress } from "@/components/AuthButton";
 import { Panel } from "@/components/forms";
 import { TxStatus } from "@/components/TxStatus";
 import { Button } from "@/components/ui";
 import { useDayze } from "@/hooks/useDayze";
-import { useTx } from "@/hooks/useTx";
+import { shortError, useTx } from "@/hooks/useTx";
 import { ApprovalPolicyAbi, DayzePayrollAbi } from "@/lib/contracts/abis";
-import { StreamStatus, type StreamRow } from "./streams";
+import { scanAllStreams, StreamStatus, type StreamRow } from "./streams";
 
 type QueueItem = { stream: StreamRow; orgName: string; count: number; required: number; approved: boolean };
 
 /**
  * Pending streams, across every org, where the connected account is an approver.
- * There's no onchain index of "orgs I approve for", so it reads StreamPending events since the
- * deploy block and checks each one. Fine at demo scale; checkpoint 13 swaps in a subgraph.
+ * There's no onchain index of "orgs I approve for", so it scans every stream and keeps the pending ones.
  */
 export function useApprovalQueue() {
   const { account, d } = useDayze();
@@ -28,23 +27,11 @@ export function useApprovalQueue() {
     enabled: !!publicClient && !!account && !!d,
     refetchInterval: 15_000,
     queryFn: async (): Promise<QueueItem[]> => {
-      const logs = await publicClient!.getLogs({
-        address: d!.payroll,
-        event: getAbiItem({ abi: DayzePayrollAbi, name: "StreamPending" }),
-        fromBlock: BigInt(d!.deployBlock),
-        toBlock: "latest",
-      });
-      const ids = [...new Set(logs.map((l) => l.args.id).filter((id): id is bigint => id !== undefined))];
+      const pending = (await scanAllStreams(publicClient!, d!.payroll)).filter((s) => s.status === StreamStatus.Pending);
 
       const items = await Promise.all(
-        ids.map(async (id): Promise<QueueItem | undefined> => {
-          const s = (await publicClient!.readContract({
-            address: d!.payroll,
-            abi: DayzePayrollAbi,
-            functionName: "getStream",
-            args: [id],
-          })) as Omit<StreamRow, "id">;
-          if (s.status !== StreamStatus.Pending) return undefined;
+        pending.map(async (s): Promise<QueueItem | undefined> => {
+          const id = s.id;
           const read = <F extends "isApprover" | "approvalCount" | "required" | "hasApproved">(functionName: F, args: readonly unknown[]) =>
             publicClient!.readContract({ address: d!.approvalPolicy, abi: ApprovalPolicyAbi, functionName, args } as never);
           const isApprover = (await read("isApprover", [s.payer, account])) as boolean;
@@ -55,7 +42,7 @@ export function useApprovalQueue() {
             read("hasApproved", [s.payer, id, account]) as Promise<boolean>,
             publicClient!.readContract({ address: d!.payroll, abi: DayzePayrollAbi, functionName: "orgOf", args: [s.payer] }),
           ]);
-          return { stream: { id, ...s }, orgName: org.name, count: Number(count), required: Number(required), approved };
+          return { stream: s, orgName: org.name, count: Number(count), required: Number(required), approved };
         }),
       );
       return items.filter((i): i is QueueItem => !!i);
@@ -66,7 +53,7 @@ export function useApprovalQueue() {
 /** §6 Approvals: approve pending streams, then activate them once they have enough approvals */
 export function ApprovalsSection() {
   const { d, tokens } = useDayze();
-  const { data: queue, isLoading, refetch } = useApprovalQueue();
+  const { data: queue, isLoading, error, refetch } = useApprovalQueue();
   const tx = useTx();
   const symbolOf = (wrapper: Address) => tokens.find((t) => t.wrapper.toLowerCase() === wrapper.toLowerCase())?.symbol ?? "?";
 
@@ -86,6 +73,8 @@ export function ApprovalsSection() {
     >
       {isLoading ? (
         <p className="text-caption text-mid-grey">Looking for pending streams…</p>
+      ) : error ? (
+        <p className="text-caption text-soft-charcoal">Couldn&apos;t load pending streams: {shortError(error)}</p>
       ) : !queue || queue.length === 0 ? (
         <p className="text-caption text-mid-grey">Nothing waiting for your approval.</p>
       ) : (
