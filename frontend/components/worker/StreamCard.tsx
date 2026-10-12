@@ -20,30 +20,38 @@ import { useLiveBalance, useOrgName, useUnsealed } from "./hooks";
  * `unlocked` means the worker has an ACP, so `monthly` and `withdrawn` can be unsealed.
  */
 export function StreamCard({ stream, unlocked }: { stream: StreamRow; unlocked: boolean }) {
-  const { tokens } = useDayze();
-  const org = useOrgName(stream.payer);
+  const { tokens, d } = useDayze();
+  const org = useOrgName(stream.payer) ?? "your employer";
   const symbol = tokens.find((t) => t.wrapper.toLowerCase() === stream.token.toLowerCase())?.symbol ?? "";
   const monthly = useUnsealed(stream.monthly, unlocked);
   const withdrawn = useUnsealed(stream.withdrawn, unlocked);
-  const available = useLiveBalance(stream, monthly.data, withdrawn.data);
-  const live = stream.status === StreamStatus.Active;
+  const allocated = useUnsealed(stream.allocated, unlocked);
+  const banked = useUnsealed(stream.banked, unlocked);
+  const pay = useLiveBalance(stream, { allocated: allocated.data, banked: banked.data, withdrawn: withdrawn.data });
+  const available = pay?.available;
+  const active = stream.status === StreamStatus.Active;
+  const funded = pay?.thisPeriodTotal !== undefined;
 
-  const [whole, fraction] = available !== undefined ? formatSixDp(available).split(".") : ["", ""];
+  // The big number is only this period's pay: it counts up to what was set aside, then stops
+  const [whole, fraction] = pay ? formatSixDp(pay.thisPeriod).split(".") : ["", ""];
+  const total = pay?.thisPeriodTotal;
+  const progress = pay && total ? Number((pay.thisPeriod * BigInt(1000)) / total) / 10 : 0;
+  const note = d && monthly.data !== undefined && total !== undefined ? fundingNote(stream, d.period, monthly.data, total, org, symbol) : undefined;
 
   return (
     <article className="flex flex-col gap-8 rounded-3xl bg-pure-white p-6 md:p-10">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          {live && <span className="pulse-dot inline-block h-2 w-2 rounded-full bg-gloss-black" />}
-          <span>Paid by {org ?? "your employer"}</span>
+          {active && funded && <span className="pulse-dot inline-block h-2 w-2 rounded-full bg-gloss-black" />}
+          <span>Paid by {org}</span>
           <HumanBadge address={stream.payee} />
         </div>
         <Badge>{statusLabel[stream.status]}</Badge>
       </header>
 
       <div className="flex flex-col gap-2">
-        <span className="text-caption text-mid-grey">Available to withdraw</span>
-        {available === undefined ? (
+        <span className="text-caption text-mid-grey">Your salary this period</span>
+        {pay === undefined ? (
           <span className="font-classic text-[56px] leading-none text-mid-grey">
             {unlocked ? "decrypting…" : "••••••"}
           </span>
@@ -53,11 +61,41 @@ export function StreamCard({ stream, unlocked }: { stream: StreamRow; unlocked: 
               {whole}
               <span className="text-mid-grey">.{fraction}</span>
             </span>
-            <span className="font-grotesk text-subheading">{symbol}</span>
+            {total !== undefined && (
+              <span className="font-grotesk text-subheading">
+                of {formatConfidential(total)} {symbol}
+              </span>
+            )}
           </div>
         )}
-        {live && available !== undefined && (
+        {funded && (
+          <div
+            role="progressbar"
+            aria-label="This pay period"
+            aria-valuenow={Math.round(progress)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            className="h-1.5 max-w-xl rounded-pill bg-gloss-black/10"
+          >
+            <div className="h-full rounded-pill bg-gloss-black" style={{ width: `${progress}%` }} />
+          </div>
+        )}
+        {active && pay !== undefined && funded && (
           <span className="text-caption text-soft-charcoal">Updating live. 0 transactions.</span>
+        )}
+        {note && <span className="text-caption text-soft-charcoal">{note}</span>}
+        {active && pay !== undefined && !funded && (
+          <span className="text-caption text-soft-charcoal">
+            Waiting for {org} to run payroll for this period. Your pay starts streaming as soon as they do.
+          </span>
+        )}
+        {pay !== undefined && pay.unclaimedEarlier > BigInt(0) && (
+          <span className="pt-2">
+            <span className="text-caption text-mid-grey">Unclaimed from earlier periods </span>
+            <span className="tabular-nums">
+              {formatSixDp(pay.unclaimedEarlier)} {symbol}
+            </span>
+          </span>
         )}
         {stream.status === StreamStatus.Pending && (
           <span className="text-caption text-soft-charcoal">Waiting for your employer&apos;s approvers. Pay starts when they approve.</span>
@@ -68,6 +106,7 @@ export function StreamCard({ stream, unlocked }: { stream: StreamRow; unlocked: 
         <div className="flex flex-col gap-1">
           <dt className="text-caption text-mid-grey">Monthly salary</dt>
           <dd>{monthly.data !== undefined ? `${formatConfidential(monthly.data)} ${symbol}` : "••••••"}</dd>
+          {d && demoMonth(d.period) && <dd className="text-caption text-soft-charcoal">{demoMonth(d.period)}</dd>}
         </div>
         <div className="flex flex-col gap-1">
           <dt className="text-caption text-mid-grey">Withdrawn so far</dt>
@@ -167,8 +206,11 @@ function WithdrawForm({
       }}
     >
       <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
-        <Field label={`Amount (${symbol})`} hint="Leave empty to withdraw everything available. Encrypted before it's sent.">
-          <Input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="All available" />
+        <Field
+          label={`Amount (${symbol})`}
+          hint={`Leave empty to withdraw all you've streamed and not withdrawn${available !== undefined ? ` (${formatConfidential(available)} ${symbol})` : ""}. Encrypted before it's sent.`}
+        >
+          <Input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="All of it" />
         </Field>
         <Button type="submit" disabled={tx.busy || (!parsed && !available)}>
           Withdraw
@@ -185,4 +227,20 @@ function formatSixDp(units: bigint): string {
   const s = formatConfidential(units);
   const [w, f = ""] = s.split(".");
   return `${Number(w).toLocaleString("en-US")}.${f.padEnd(6, "0")}`;
+}
+
+/** On testnet a "month" is shortened so pay moves visibly. Says how long it is, or nothing for a real month. */
+function demoMonth(period: number): string | undefined {
+  if (period >= 28 * 24 * 3600) return undefined;
+  const minutes = period / 60;
+  return `On this testnet a "month" is ${minutes >= 1 ? `${minutes} minutes` : `${period} seconds`}`;
+}
+
+/** Why this period's pay is less than the salary: started mid-period, or the employer's budget fell short */
+function fundingNote(stream: StreamRow, period: number, monthly: bigint, total: bigint, org: string, symbol: string): string | undefined {
+  // What a full budget would have set aside for the time left in the period
+  const due = (monthly * (stream.allocEnd - stream.allocStart)) / BigInt(period);
+  if (total < due) return `${org} set aside ${formatConfidential(total)} of the ${formatConfidential(due)} ${symbol} due this period.`;
+  if (due < monthly) return "Pro rata: your pay started partway through this period.";
+  return undefined;
 }

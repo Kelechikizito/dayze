@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import type { Address, Hex } from "viem";
 import { usePublicClient, useReadContract, useReadContracts } from "wagmi";
-import { StreamStatus, type StreamRow } from "@/components/employer/streams";
+import type { StreamRow } from "@/components/employer/streams";
 import { useDayze } from "@/hooks/useDayze";
 import { useEnsureACP } from "@/hooks/useEnsureACP";
 import { useReducedMotion } from "@/hooks/useMotion";
@@ -101,13 +101,27 @@ export function useUnsealed(handle: Hex | undefined, enabled: boolean) {
   });
 }
 
+export type LivePay = {
+  /** Streamed and not yet withdrawn: what a withdrawal can take */
+  available: bigint;
+  /** Streamed so far from this period's allocation */
+  thisPeriod: bigint;
+  /** This period's allocation, or undefined if payroll hasn't funded this period */
+  thisPeriodTotal: bigint | undefined;
+  /** Streamed in earlier periods and not withdrawn yet */
+  unclaimedEarlier: bigint;
+};
+
 /**
- * A stream's withdrawable balance, ticking locally. Same formula as DayzePayroll._accrued:
- * accrued = monthly × elapsed / PERIOD, with elapsed stopping at endTime for cancelled streams.
+ * A stream's pay, ticking locally. Same maths as DayzePayroll._streamed: everything banked, plus the
+ * live allocation streamed linearly from allocStart to allocEnd. Once the period ends the allocation
+ * counts as earlier pay, and the stream waits for the next payroll run.
  * No transactions: the numbers only change on screen.
  */
-export function useLiveBalance(stream: StreamRow, monthly: bigint | undefined, withdrawn: bigint | undefined) {
-  const { d } = useDayze();
+export function useLiveBalance(
+  stream: StreamRow,
+  amounts: { allocated: bigint | undefined; banked: bigint | undefined; withdrawn: bigint | undefined },
+): LivePay | undefined {
   const offset = useChainClockOffset();
   const reduced = useReducedMotion();
   const [now, setNow] = useState(() => Date.now() / 1000);
@@ -118,13 +132,24 @@ export function useLiveBalance(stream: StreamRow, monthly: bigint | undefined, w
     return () => clearInterval(id);
   }, [reduced]);
 
-  if (monthly === undefined || withdrawn === undefined || !d) return undefined;
-  if (stream.status !== StreamStatus.Active && stream.status !== StreamStatus.Cancelled) return BigInt(0);
+  const { allocated, banked, withdrawn } = amounts;
+  if (allocated === undefined || banked === undefined || withdrawn === undefined) return undefined;
 
-  const period = BigInt(d.period);
-  const chainNow = BigInt(Math.floor(now + offset));
-  const end = stream.status === StreamStatus.Cancelled ? stream.endTime : chainNow;
-  const elapsed = end > stream.startTime ? end - stream.startTime : BigInt(0);
-  const accrued = (monthly * elapsed) / period;
-  return accrued > withdrawn ? accrued - withdrawn : BigInt(0);
+  const zero = BigInt(0);
+  // Milliseconds, so the number moves smoothly between blocks
+  const nowMs = BigInt(Math.floor((now + offset) * 1000));
+  const startMs = stream.allocStart * BigInt(1000);
+  const endMs = stream.allocEnd * BigInt(1000);
+  const live = stream.allocEnd > zero && nowMs < endMs;
+
+  const earlier = banked + (stream.allocEnd > zero && !live ? allocated : zero);
+  const thisPeriod = live && endMs > startMs ? (allocated * (nowMs - startMs)) / (endMs - startMs) : zero;
+  const streamed = earlier + thisPeriod;
+
+  return {
+    available: streamed > withdrawn ? streamed - withdrawn : zero,
+    thisPeriod,
+    thisPeriodTotal: live ? allocated : undefined,
+    unclaimedEarlier: earlier > withdrawn ? earlier - withdrawn : zero,
+  };
 }
