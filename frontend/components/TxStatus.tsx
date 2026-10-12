@@ -1,3 +1,9 @@
+"use client";
+
+import { useAccount } from "wagmi";
+import { defaultChain } from "@/lib/chains";
+import { useTxLog } from "@/lib/txLog";
+
 export type TxStage = "idle" | "encrypting" | "signing" | "confirming" | "fhe-processing" | "done" | "error";
 
 /** The four working stages, in order. Every FHE action in 10–12 walks through them. */
@@ -42,7 +48,37 @@ export function TxStatus({ stage, error, txHash }: { stage: TxStage; error?: str
             ? "Done."
             : STAGES[currentIndex]?.help}
       </p>
-      {txHash && <p className="font-mono text-caption break-all text-mid-grey">{txHash}</p>}
+      {txHash && <ExplorerLink hash={txHash}>View on {defaultChain.blockExplorers.default.name} ↗</ExplorerLink>}
     </div>
+  );
+}
+
+function ExplorerLink({ hash, children }: { hash: string; children: React.ReactNode }) {
+  return (
+    <a
+      href={`${defaultChain.blockExplorers.default.url}/tx/${hash}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-caption underline underline-offset-4"
+    >
+      {children}
+    </a>
+  );
+}
+
+/** Explorer links for a section's confirmed transactions (useTx with a `log` scope). They outlive TxStatus. */
+export function TxLinks({ scope }: { scope: string }) {
+  const { address } = useAccount();
+  const entries = useTxLog(address, scope);
+  if (entries.length === 0) return null;
+  return (
+    <ul className="flex flex-col gap-1">
+      {entries.map((e) => (
+        <li key={e.hash} className="flex flex-wrap items-baseline gap-x-3">
+          <span className="text-caption text-soft-charcoal">{e.label}</span>
+          <ExplorerLink hash={e.hash}>{defaultChain.blockExplorers.default.name} ↗</ExplorerLink>
+        </li>
+      ))}
+    </ul>
   );
 }

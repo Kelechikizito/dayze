@@ -6,12 +6,13 @@ import { formatUnits, maxUint256, parseUnits, type Address } from "viem";
 import { useBalance, useReadContract, useReadContracts } from "wagmi";
 import { Field, Input, Panel, PillPicker, Stat } from "@/components/forms";
 import { SecretValue } from "@/components/SecretValue";
-import { TxStatus } from "@/components/TxStatus";
+import { TxLinks, TxStatus } from "@/components/TxStatus";
 import { Button } from "@/components/ui";
 import { useDayze } from "@/hooks/useDayze";
 import { useTx } from "@/hooks/useTx";
 import { ConfidentialNativeAbi, ConfidentialTokenAbi, DayzePayrollAbi, ERC20_HarnessAbi } from "@/lib/contracts/abis";
 import { encryptUint64 } from "@/lib/fhe";
+import { clearTxLog } from "@/lib/txLog";
 import { formatConfidential, parseConfidential, toConfidentialUnits, type ConfidentialTokenInfo, type TokenKey } from "@/lib/tokens";
 
 const OPERATOR_FOREVER = 2 ** 48 - 1;
@@ -58,7 +59,7 @@ export function FundSection() {
 function TokenFunding({ token }: { token: ConfidentialTokenInfo }) {
   const { account, d } = useDayze();
   const cofhe = useCofheClient();
-  const tx = useTx();
+  const tx = useTx("fund");
   const [amount, setAmount] = useState("");
   const [progress, setProgress] = useState<string>();
 
@@ -105,20 +106,19 @@ function TokenFunding({ token }: { token: ConfidentialTokenInfo }) {
   /** Mint (testnet) → approve → shield → allow payroll → fund, each only if needed, one click */
   const addFunds = async () => {
     if (!parsed || !units) return;
-    const keep = { keepOpen: true };
     const steps: { label: string; run: () => Promise<unknown> }[] = [];
 
     if (shortfall > BigInt(0) && canMint) {
       steps.push({
         label: `Getting test ${token.underlyingSymbol}`,
-        run: () => tx.run(() => ({ address: token.underlying!, abi: ERC20_HarnessAbi, functionName: "mint", args: [account!, shortfall] }), keep),
+        run: () => tx.run(() => ({ address: token.underlying!, abi: ERC20_HarnessAbi, functionName: "mint", args: [account!, shortfall] }), { keepOpen: true, label: `Got test ${token.underlyingSymbol}` }),
       });
     }
     if (!token.native && (allowance.data ?? BigInt(0)) < parsed) {
       steps.push({
         label: `Approving ${token.underlyingSymbol}`,
         run: () =>
-          tx.run(() => ({ address: token.underlying!, abi: ERC20_HarnessAbi, functionName: "approve", args: [token.wrapper, maxUint256] }), keep),
+          tx.run(() => ({ address: token.underlying!, abi: ERC20_HarnessAbi, functionName: "approve", args: [token.wrapper, maxUint256] }), { keepOpen: true, label: `Approved ${token.underlyingSymbol}` }),
       });
     }
     steps.push({
@@ -129,14 +129,14 @@ function TokenFunding({ token }: { token: ConfidentialTokenInfo }) {
             token.native
               ? { address: token.wrapper, abi: ConfidentialNativeAbi, functionName: "shieldNative", args: [account!], value: parsed }
               : { address: token.wrapper, abi: ConfidentialTokenAbi, functionName: "shield", args: [account!, parsed] },
-          keep,
+          { keepOpen: true, label: "Encrypted the deposit" },
         ),
     });
     if (!isOperator.data) {
       steps.push({
         label: "Connecting it to payroll",
         run: () =>
-          tx.run(() => ({ address: token.wrapper, abi: ConfidentialTokenAbi, functionName: "setOperator", args: [d!.payroll, OPERATOR_FOREVER] }), keep),
+          tx.run(() => ({ address: token.wrapper, abi: ConfidentialTokenAbi, functionName: "setOperator", args: [d!.payroll, OPERATOR_FOREVER] }), { keepOpen: true, label: "Connected it to payroll" }),
       });
     }
     steps.push({
@@ -147,10 +147,11 @@ function TokenFunding({ token }: { token: ConfidentialTokenInfo }) {
             const { handle, proof } = await encryptUint64(cofhe, units, d!.payroll);
             return { address: d!.payroll, abi: DayzePayrollAbi, functionName: "fundVault", args: [token.wrapper, handle, proof] };
           },
-          { encrypts: true },
+          { encrypts: true, label: "Moved it into the vault" },
         ),
     });
 
+    clearTxLog(account!, "fund");
     for (const [i, step] of steps.entries()) {
       setProgress(`Step ${i + 1} of ${steps.length}: ${step.label}…`);
       if (!(await step.run())) {
@@ -201,6 +202,7 @@ function TokenFunding({ token }: { token: ConfidentialTokenInfo }) {
 
       {progress && <p className="text-caption">{progress}</p>}
       <TxStatus stage={tx.stage} error={tx.error} txHash={tx.hash} />
+      {!tx.busy && <TxLinks scope="fund" />}
     </div>
   );
 }

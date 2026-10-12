@@ -39,6 +39,7 @@ Go to http://localhost:3000/onboarding/employer.
 - [ ] Create a 12,000 cUSDC stream. It should go **Needs approval**. Approve it from both approver wallets, then **Activate**.
 - [ ] A verified payee shows "✓ verified human"; an unverified one shows "not verified".
 - [ ] Every action shows the TxStatus stages, with no silent waits and no Privy confirm pop-ups.
+- [ ] Each transaction links to Basescan. The links stay after a step finishes: under "✓ Done" in the wizard, and under the Fund and Policy forms.
 - [ ] If anything fails, copy the `[dayze] transaction failed` line from the browser console.
 
 Once these pass: tick 08, 09 and 10 in `build-guide/README.md`.

@@ -6,7 +6,7 @@ import { isAddress, type Address } from "viem";
 import { useReadContract, useReadContracts } from "wagmi";
 import { shortAddress } from "@/components/AuthButton";
 import { Field, Input, Panel, Stat } from "@/components/forms";
-import { TxStatus } from "@/components/TxStatus";
+import { TxLinks, TxStatus } from "@/components/TxStatus";
 import { Button } from "@/components/ui";
 import { useDayze } from "@/hooks/useDayze";
 import { useTx } from "@/hooks/useTx";
@@ -73,13 +73,14 @@ export function PolicySection() {
           ))}
         </div>
       )}
+      <TxLinks scope="policy" />
     </Panel>
   );
 }
 
 function ApproversForm({ current, currentRequired }: { current: readonly Address[]; currentRequired: number }) {
   const { d } = useDayze();
-  const tx = useTx();
+  const tx = useTx("policy");
   const [text, setText] = useState(() => current.join("\n"));
   const [required, setRequired] = useState(String(currentRequired || 1));
 
@@ -94,7 +95,7 @@ function ApproversForm({ current, currentRequired }: { current: readonly Address
       abi: ApprovalPolicyAbi,
       functionName: "setPolicy",
       args: [list as Address[], k],
-    }));
+    }), { label: `Saved approvers (${k} of ${list.length})` });
 
   return (
     <form
@@ -135,7 +136,7 @@ function ApproversForm({ current, currentRequired }: { current: readonly Address
 function ThresholdForm({ token }: { token: ConfidentialTokenInfo }) {
   const { d } = useDayze();
   const cofhe = useCofheClient();
-  const tx = useTx();
+  const tx = useTx("policy");
   const [value, setValue] = useState("");
   let parsed: bigint | undefined;
   try {
@@ -155,7 +156,7 @@ function ThresholdForm({ token }: { token: ConfidentialTokenInfo }) {
           args: [token.wrapper, handle, proof],
         };
       },
-      { encrypts: true },
+      { encrypts: true, label: `Set the ${token.symbol} threshold` },
     );
 
   return (

@@ -29,7 +29,7 @@ export function OrgSection() {
   const sponsored = useGasSponsored();
   const balance = useBalance({ address: account, query: { enabled: !!account && !exists && !sponsored } });
   const [name, setName] = useState("");
-  const tx = useTx();
+  const tx = useTx("org");
 
   if (exists && org) {
     return (
@@ -42,7 +42,7 @@ export function OrgSection() {
   }
 
   const create = () =>
-    tx.run(() => ({ address: d!.payroll, abi: DayzePayrollAbi, functionName: "createOrg", args: [name.trim()] }));
+    tx.run(() => ({ address: d!.payroll, abi: DayzePayrollAbi, functionName: "createOrg", args: [name.trim()] }), { label: "Created the organisation" });
 
   return (
     <Panel title="Create your organisation" help="Your org name is public. Salaries never are.">

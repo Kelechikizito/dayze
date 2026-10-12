@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { OnboardingWizard, StepIcon, type WizardStep } from "@/components/OnboardingWizard";
 import type { StepStatus } from "@/components/Stepper";
+import { TxLinks } from "@/components/TxStatus";
 import { Button } from "@/components/ui";
 import { useDayze } from "@/hooks/useDayze";
 import { markOnboarded } from "@/lib/routing";
@@ -83,6 +84,7 @@ export function EmployerOnboarding() {
       icon: <StepIcon name="org" />,
       status: statusOf("org"),
       content: <OrgSection />,
+      doneContent: <TxLinks scope="org" />,
     },
     {
       key: "fund",
@@ -92,6 +94,7 @@ export function EmployerOnboarding() {
       icon: <StepIcon name="vault" />,
       status: statusOf("fund"),
       content: <FundSection />,
+      doneContent: <TxLinks scope="fund" />,
     },
     {
       key: "policy",
@@ -101,6 +104,7 @@ export function EmployerOnboarding() {
       icon: <StepIcon name="rules" />,
       status: statusOf("policy"),
       content: <PolicySection />,
+      doneContent: <TxLinks scope="policy" />,
       onSkip: () => skip("policy"),
     },
     {
@@ -111,6 +115,7 @@ export function EmployerOnboarding() {
       icon: <StepIcon name="eye" />,
       status: statusOf("auditor"),
       content: <AuditorsSection />,
+      doneContent: <TxLinks scope="auditor" />,
       onSkip: () => skip("auditor"),
     },
     {

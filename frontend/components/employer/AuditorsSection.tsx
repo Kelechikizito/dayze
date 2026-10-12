@@ -29,11 +29,13 @@ export function AuditorsSection() {
   const { d } = useDayze();
   const auditors = useAuditors();
   const [input, setInput] = useState("");
-  const tx = useTx();
+  const tx = useTx("auditor");
   const valid = isAddress(input.trim());
 
   const write = (functionName: "addAuditor" | "removeAuditor", who: Address) =>
-    tx.run(() => ({ address: d!.auditRegistry, abi: AuditRegistryAbi, functionName, args: [who] }));
+    tx.run(() => ({ address: d!.auditRegistry, abi: AuditRegistryAbi, functionName, args: [who] }), {
+      label: `${functionName === "addAuditor" ? "Added" : "Removed"} auditor ${shortAddress(who)}`,
+    });
 
   return (
     <Panel

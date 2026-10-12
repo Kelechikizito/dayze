@@ -20,6 +20,8 @@ export type WizardStep = {
   status: StepStatus;
   /** The form or action for this step */
   content?: ReactNode;
+  /** Shown under "Done" once the step is finished, e.g. its explorer links */
+  doneContent?: ReactNode;
   /** Called when the visitor skips an optional step */
   onSkip?: () => void;
 };
@@ -95,7 +97,10 @@ export function OnboardingWizard({ steps, footer }: { steps: WizardStep[]; foote
         )}
 
         {step.status === "done" && index !== current && !allDone ? (
-          <p className="text-caption">✓ Done. This is saved onchain.</p>
+          <div className="flex flex-col gap-3">
+            <p className="text-caption">✓ Done. This is saved onchain.</p>
+            {step.doneContent}
+          </div>
         ) : (
           step.content && (
             <WizardEmbed.Provider value>

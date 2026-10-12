@@ -6,6 +6,7 @@ import { useCallback, useState } from "react";
 import { encodeFunctionData, type Hex, type TransactionReceipt } from "viem";
 import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import type { TxStage } from "@/components/TxStatus";
+import { addTx } from "@/lib/txLog";
 
 // wagmi's un-narrowed param type has `value: undefined`; replace it so payable calls (shieldNative) type-check
 type WriteParams = Omit<Parameters<ReturnType<typeof useWriteContract>["writeContractAsync"]>[0], "value"> & {
@@ -68,8 +69,9 @@ function fullText(e: unknown): string {
  * encrypting (if `build` encrypts) → signing → confirming → done | error.
  * Callers that wait on the FHE network afterwards can call `setStage("fhe-processing")`.
  * On success, every contract read is refetched so the UI shows the new state.
+ * With a `log` scope, each confirmed transaction is kept for TxLinks (lib/txLog).
  */
-export function useTx() {
+export function useTx(log?: string) {
   const { address, chainId } = useAccount();
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
@@ -83,7 +85,7 @@ export function useTx() {
   const run = useCallback(
     async (
       build: () => WriteParams | Promise<WriteParams>,
-      opts: { encrypts?: boolean; keepOpen?: boolean } = {},
+      opts: { encrypts?: boolean; keepOpen?: boolean; label?: string } = {},
     ): Promise<TransactionReceipt | undefined> => {
       setError(undefined);
       setHash(undefined);
@@ -133,6 +135,7 @@ export function useTx() {
         setStage("confirming");
         const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
         if (receipt.status !== "success") throw new Error("Transaction reverted");
+        if (log) addTx(address, log, { label: opts.label ?? "Transaction", hash: txHash });
 
         await queryClient.invalidateQueries();
         if (!opts.keepOpen) setStage("done");
@@ -144,7 +147,7 @@ export function useTx() {
         return undefined;
       }
     },
-    [address, chainId, publicClient, writeContractAsync, sendWithPrivy, sponsored, queryClient],
+    [address, chainId, publicClient, writeContractAsync, sendWithPrivy, sponsored, queryClient, log],
   );
 
   const reset = useCallback(() => {
