@@ -1,6 +1,6 @@
 # Dayze
 
-> Salaries stream onchain where nobody can read them, and a worker can prove "I earn at least $2,500" to one landlord without revealing the number.
+> Dayze streams salaries onchain with every amount encrypted. A worker can prove "I earn at least $2,500" to one landlord, who learns the answer and never sees the salary.
 
 **Colosseum Crypto World's Fair** · Base track · Built on Fhenix CoFHE, Privy and World ID
 
@@ -20,13 +20,13 @@ So companies keep payroll off-chain, and workers paid in crypto can't prove what
 
 Ada works for Acme Labs at 3,000 cUSDC a month. On testnet a "month" is 10 minutes, so you can watch it happen.
 
-1. **Acme funds payroll.** It shields 5,000 USDC into cUSDC, a confidential wrapper, and moves it into its payroll vault. From here on, every amount is ciphertext.
-2. **Acme creates Ada's stream.** The browser encrypts "3,000" before it leaves the page. `ApprovalPolicy` compares it with Acme's encrypted 10,000 threshold. Only one bit becomes public: "above the threshold" or "below it". Below goes Active. Above waits for Acme's approvers (2 of 2 in the demo).
+1. **Acme funds payroll.** It shields 5,000 USDC into cUSDC, a confidential wrapper, and moves it into its payroll vault. From this point, every amount is stored as ciphertext.
+2. **Acme creates Ada's stream.** The browser encrypts "3,000" before it leaves the page. `ApprovalPolicy` compares it with Acme's encrypted 10,000 threshold. The only public result is one bit: above or below the threshold. A salary below it goes Active, and one above it waits for Acme's approvers (2 of 2 in the demo).
 3. **Acme runs payroll** with an encrypted budget. Each stream gets `min(salary for the rest of the period, budget left)`, in table order. A 4,000 budget across two 3,000 streams gives 3,000 and 1,000. Only what is set aside leaves the vault.
-4. **Ada watches her pay stream in.** Her app decrypts her own allocation once, with a signed permit, then ticks it up every second. No transactions.
-5. **Ada withdraws.** The contract pays `req` if it fits what has streamed, else 0, all on ciphertext. Basescan shows a handle, not an amount.
-6. **Ada proves her income.** Her landlord asks for at least 2,500 a month. Ada issues a credential that expires in 7 days. The contract computes `monthly >= 2500` on the encrypted salary and lets only the landlord decrypt the answer. The landlord sees: yes, issued by a World ID-verified human, active since, expires at. Nobody learns "3,000".
-7. **Acme's auditor checks the books.** They decrypt salaries, set-aside amounts and withdrawals in their browser and export a CSV. Nothing is uploaded.
+4. **Ada watches her pay stream in.** Her app decrypts her own allocation once, with a signed permit, then ticks it up every second without sending any transactions.
+5. **Ada withdraws.** The contract pays `req` if it fits what has streamed, else 0, all on ciphertext. On Basescan, the amount appears as a ciphertext handle.
+6. **Ada proves her income.** Her landlord asks for at least 2,500 a month. Ada issues a credential that expires in 7 days. The contract computes `monthly >= 2500` on the encrypted salary and lets only the landlord decrypt the answer. The landlord sees the answer (yes), that a World ID-verified human issued it, when the stream started and when the credential expires. The salary stays encrypted.
+7. **Acme's auditor checks the books.** They decrypt salaries, set-aside amounts and withdrawals in their browser and export a CSV, which is built on their own computer.
 
 ```mermaid
 sequenceDiagram
@@ -58,14 +58,14 @@ sequenceDiagram
 ## What makes this different
 
 - **Against plain stablecoin payroll (Sablier, Superfluid, a USDC transfer):** those publish every salary. Dayze keeps salary, balance, budget and withdrawal amounts encrypted onchain.
-- **Against a ZK proof of income:** a SNARK would need a separate commitment to the salary, plus a proof that it matches the real payments. Dayze's check runs on the stream's own ciphertext ([`IncomeCredential.sol#L101`](https://github.com/Kelechikizito/dayze/blob/44db611d4ed87ed7fd2460a5c5d1c0ceff488502/src/IncomeCredential.sol#L101)), so the proof can't drift from what the worker is actually paid.
+- **Against a ZK proof of income:** a SNARK would need a separate commitment to the salary, plus a proof that it matches the real payments. Dayze's check runs on the stream's own ciphertext ([`IncomeCredential.sol#L101`](https://github.com/Kelechikizito/dayze/blob/44db611d4ed87ed7fd2460a5c5d1c0ceff488502/src/IncomeCredential.sol#L101)), so the answer always matches what the worker is paid.
 - **Against FHE payroll that publishes a permanent "salary ≥ X" flag:** a Dayze credential goes to one verifier, expires, and can be revoked. The worker decides who learns the bit, and for how long.
-- **Against "encrypt the salary, hope the vault holds it":** pay never outruns the money. Each period, payroll sets aside what each stream may stream, so a worker can always withdraw what they see.
+- **Against encrypted salaries with no funding check:** a worker is never owed more than the vault holds. Each period, payroll sets aside each stream's pay from the vault, so a worker can always withdraw the balance they see.
 - **Against payslips:** the landlord learns one bit, plus who paid, since when, and whether the worker is a verified unique human.
 
 ## Architecture
 
-Seven contracts, all on Base Sepolia, all source-verified. Every amount is a CoFHE `euint64` handle. Access is granted per handle with `FHE.allow`, and users decrypt with EIP-712 permits. No server holds a key that can read a salary.
+Dayze has seven contracts, all deployed and source-verified on Base Sepolia. Every amount is a CoFHE `euint64` handle. Access is granted per handle with `FHE.allow`, and users decrypt with EIP-712 permits. No server holds a key that can read a salary.
 
 ### DayzePayroll ([src/DayzePayroll.sol](https://github.com/Kelechikizito/dayze/blob/44db611d4ed87ed7fd2460a5c5d1c0ceff488502/src/DayzePayroll.sol))
 
@@ -74,7 +74,7 @@ Orgs, encrypted per-token vaults and salary streams. Money flows vault → payro
 - `resolvePolicy` ([L246–L259](https://github.com/Kelechikizito/dayze/blob/44db611d4ed87ed7fd2460a5c5d1c0ceff488502/src/DayzePayroll.sol#L246-L259)) is permissionless: anyone can post the decrypted bit, and the Threshold Network's signature proves it.
 - `runPayroll` ([L274–L311](https://github.com/Kelechikizito/dayze/blob/44db611d4ed87ed7fd2460a5c5d1c0ceff488502/src/DayzePayroll.sol#L274-L311)) splits an encrypted budget across streams, pro rata for the time left in the period. Finished periods move into `banked`, which stays withdrawable.
 - `withdraw` ([L315–L338](https://github.com/Kelechikizito/dayze/blob/44db611d4ed87ed7fd2460a5c5d1c0ceff488502/src/DayzePayroll.sol#L315-L338)) pays 0 on an over-withdrawal instead of reverting, so a failed attempt leaks nothing.
-- Streaming is lazy. It's computed in `euint128` only on withdraw ([L379–L405](https://github.com/Kelechikizito/dayze/blob/44db611d4ed87ed7fd2460a5c5d1c0ceff488502/src/DayzePayroll.sol#L379-L405)). Times are plaintext; only amounts are encrypted.
+- Streaming is computed lazily, in `euint128`, only when a worker withdraws ([L379–L405](https://github.com/Kelechikizito/dayze/blob/44db611d4ed87ed7fd2460a5c5d1c0ceff488502/src/DayzePayroll.sol#L379-L405)). Times are plaintext; only amounts are encrypted.
 
 ### ApprovalPolicy ([src/ApprovalPolicy.sol](https://github.com/Kelechikizito/dayze/blob/44db611d4ed87ed7fd2460a5c5d1c0ceff488502/src/ApprovalPolicy.sol))
 
@@ -86,13 +86,13 @@ k-of-n approvers per employer, plus an encrypted monthly threshold per token. `e
 
 ### HumanRegistry ([src/HumanRegistry.sol](https://github.com/Kelechikizito/dayze/blob/44db611d4ed87ed7fd2460a5c5d1c0ceff488502/src/HumanRegistry.sol))
 
-One human, one wallet. The worker does a World ID Selfie Check. The [attest route](https://github.com/Kelechikizito/dayze/blob/44db611d4ed87ed7fd2460a5c5d1c0ceff488502/frontend/app/api/world-id/attest/route.ts) verifies it with World's API and signs an EIP-712 attestation over a salted nullifier. `register` ([L77–L95](https://github.com/Kelechikizito/dayze/blob/44db611d4ed87ed7fd2460a5c5d1c0ceff488502/src/HumanRegistry.sol#L77-L95)) checks the signature and burns the nullifier. Employers see "verified human" next to each payee, and so does a landlord reading a credential.
+Each person can verify one wallet. The worker does a World ID Selfie Check. The [attest route](https://github.com/Kelechikizito/dayze/blob/44db611d4ed87ed7fd2460a5c5d1c0ceff488502/frontend/app/api/world-id/attest/route.ts) verifies it with World's API and signs an EIP-712 attestation over a salted nullifier. `register` ([L77–L95](https://github.com/Kelechikizito/dayze/blob/44db611d4ed87ed7fd2460a5c5d1c0ceff488502/src/HumanRegistry.sol#L77-L95)) checks the signature and marks the nullifier as used. Employers see "verified human" next to each payee, and so does a landlord reading a credential.
 
 ### AuditRegistry, JoinRequests, confidential tokens
 
 - **[AuditRegistry](https://github.com/Kelechikizito/dayze/blob/44db611d4ed87ed7fd2460a5c5d1c0ceff488502/src/AuditRegistry.sol)** lists each employer's auditors. Payroll grants them every new handle through the [AuditAccess](https://github.com/Kelechikizito/dayze/blob/44db611d4ed87ed7fd2460a5c5d1c0ceff488502/src/libraries/AuditAccess.sol) library.
-- **[JoinRequests](https://github.com/Kelechikizito/dayze/blob/44db611d4ed87ed7fd2460a5c5d1c0ceff488502/src/JoinRequests.sol)** lets a worker ask an employer to pay them. The request shows up in the employer console, with no wallet address sent over chat.
-- **[ConfidentialToken](https://github.com/Kelechikizito/dayze/blob/44db611d4ed87ed7fd2460a5c5d1c0ceff488502/src/ConfidentialToken.sol)** and **[ConfidentialNative](https://github.com/Kelechikizito/dayze/blob/44db611d4ed87ed7fd2460a5c5d1c0ceff488502/src/ConfidentialNative.sol)** are thin hosts over Fhenix's FHERC20 wrappers: cUSDC, cARB and cETH. Shield and unshield are the only places an amount is plaintext.
+- **[JoinRequests](https://github.com/Kelechikizito/dayze/blob/44db611d4ed87ed7fd2460a5c5d1c0ceff488502/src/JoinRequests.sol)** lets a worker ask an employer to pay them. The request appears in the employer console, so the worker doesn't have to send their address by chat.
+- **[ConfidentialToken](https://github.com/Kelechikizito/dayze/blob/44db611d4ed87ed7fd2460a5c5d1c0ceff488502/src/ConfidentialToken.sol)** and **[ConfidentialNative](https://github.com/Kelechikizito/dayze/blob/44db611d4ed87ed7fd2460a5c5d1c0ceff488502/src/ConfidentialNative.sol)** deploy Fhenix's FHERC20 wrappers: cUSDC, cARB and cETH. Shield and unshield are the only places an amount is plaintext.
 
 ### Frontend ([frontend/](https://github.com/Kelechikizito/dayze/tree/44db611d4ed87ed7fd2460a5c5d1c0ceff488502/frontend))
 
@@ -180,10 +180,10 @@ Ran 13 test suites: 128 tests passed, 0 failed, 1 skipped (129 total)
 
 The skipped suite is the live fork suite, which runs with `make test-fork` (6/6 against the real CoFHE Task Manager on Base Sepolia). CI runs format, contract-size and test checks on every push.
 
-What the tests hold to:
+What the tests check:
 - **A worker is never paid more than has streamed.** The fuzz test varies salary, budget, vault balance, elapsed time and request amount, for both a 30-day and a 10-minute period. It checks the payout, allocation, withdrawn total and vault balance exactly.
 - **A stream never streams more than its salary, the payroll budget or the vault.**
-- **An over-withdrawal pays 0, never reverts**, so a failed attempt reveals nothing.
+- **An over-withdrawal pays 0 instead of reverting**, so a failed attempt reveals nothing.
 - **A decrypt result can't be replayed** on another stream or posted twice (`DecryptReplayTest`).
 - **One World ID, one wallet:** a nullifier registers once, and only with the attester's signature.
 - **A credential is decryptable only by its verifier**, and is invalid after expiry or revocation.
@@ -191,18 +191,18 @@ What the tests hold to:
 ## Known issues
 
 - **Amounts are public at the edges.** Shielding USDC into cUSDC, and unshielding back, show the amount. That's unavoidable while the underlying token is a plain ERC20. The app warns before unshielding. Spending stays private if the worker keeps funds in cUSDC.
-- **Who is paid is public; how much is not.** Payee addresses and stream existence are visible. Encrypting payees with `eaddress` is the next step.
+- **Payees are public.** Anyone can see payee addresses and which streams exist, while the amounts stay encrypted. Encrypting payees with `eaddress` is the next step.
 - **The approval check reveals one bit:** whether a salary is above or below a hidden threshold. That's the price of letting anyone resolve the policy without a trusted server.
-- **Expiry ends validity, not knowledge.** A landlord who decrypted "yes" still knows it. Credentials are "as of issuance", so short expiries keep them honest.
+- **A credential's answer outlasts its expiry.** A landlord who decrypted "yes" still knows it after the credential expires. Credentials describe the salary when they were issued, so short expiries keep them accurate.
 - **A verified World ID can't move to a new wallet yet.** `HumanRegistry` allows one wallet per person, and the link is permanent. If that wallet is lost or stolen, it keeps the ✓ human badge, and its owner can't verify a new wallet.
 - **The World ID attester is trusted.** It can mark a wallet as human, but it can't read salaries or move funds. The owner can rotate it with `setAttester`.
 - **Removing an auditor doesn't revoke past access.** `FHE.allow` grants can't be withdrawn, so new handles go only to current auditors.
 
 ## Why Base
 
-- **CoFHE runs on Base Sepolia**, so every encrypted add, compare and transfer here runs on the real coprocessor and Threshold Network, not a mock.
+- **CoFHE runs on Base Sepolia**, so every encrypted add, compare and transfer here runs on the CoFHE coprocessor and Threshold Network.
 - **Low fees make the product usable.** Withdrawing whenever you like, issuing one credential per landlord, and sponsoring gas for workers are cheap enough on an L2.
-- **Stablecoin payroll is the use case** that onchain finance most obviously breaks today, because every salary is public.
+- **Stablecoin payroll needs privacy.** On a public ledger, anyone can read every salary, which keeps companies from paying onchain.
 
 ## Tech stack
 
@@ -218,10 +218,10 @@ What the tests hold to:
 ## What's next
 
 - **Hidden payees.** Encrypt recipient addresses with `eaddress`, so who gets paid is as private as how much.
-- **Employer verification.** Attach an organisation attestation to credentials. Today a credential proves what a payroll contract pays, not which company runs it.
+- **Employer verification.** Attach an organisation attestation to credentials. Today a credential proves what a payroll contract pays, but it doesn't name the company behind that contract.
 - **Portable credentials.** A SNARK wrapper, so a credential can be checked off-chain or on another chain without a CoFHE permit.
 - **Badge recovery.** A new Selfie Check from another wallet moves the ✓ human badge there and removes it from the old one. Only the person can pass the check, so a thief can't move it, and each person still has one verified wallet.
-- **A payroll agent.** It runs payroll each period within employer-set budgets and caps, so nobody has to press the button.
+- **A payroll agent.** It runs payroll each period within the budgets and caps the employer sets, so payroll runs on time without a manual step.
 - **Mainnet**, once CoFHE ships on Base mainnet.
 
 ## Team
