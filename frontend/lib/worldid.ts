@@ -29,6 +29,10 @@ export const WORLDID_ACTION = "dayze-register";
  */
 export const ATTESTATION_TTL_SECONDS = 7 * 24 * 60 * 60;
 
+/** HumanRegistry allows one wallet per person: shown when this World ID already verified another wallet */
+export const NULLIFIER_USED_MESSAGE =
+  "This World ID already verified another Dayze wallet, and each person can verify one. Log in with that wallet, or verify with a different World ID.";
+
 /**
  * Selfie Check's credential identifiers in a proof response. `face` is the older alias for the same
  * credential: accept it, never construct it. Orb and document proofs are rejected.

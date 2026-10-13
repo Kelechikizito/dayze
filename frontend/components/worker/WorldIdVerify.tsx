@@ -2,13 +2,13 @@
 
 import { IDKitRequestWidget, selfieCheckLegacy, type IDKitResult } from "@worldcoin/idkit";
 import { useRef, useState } from "react";
-import { useReadContract } from "wagmi";
+import { usePublicClient, useReadContract } from "wagmi";
 import { TxStatus } from "@/components/TxStatus";
 import { Button } from "@/components/ui";
 import { useDayze } from "@/hooks/useDayze";
 import { useTx } from "@/hooks/useTx";
 import { HumanRegistryAbi } from "@/lib/contracts/abis";
-import { WORLDID_ACTION, signalFor, worldIdErrorMessage, type AttestResponse, type RpSignatureResponse } from "@/lib/worldid";
+import { NULLIFIER_USED_MESSAGE, WORLDID_ACTION, signalFor, worldIdErrorMessage, type AttestResponse, type RpSignatureResponse } from "@/lib/worldid";
 
 /** Whether the connected wallet is registered in HumanRegistry, or undefined while that's being read */
 export function useHumanStatus(): boolean | undefined {
@@ -58,6 +58,7 @@ export function WorldIdVerify() {
   const { account, chainId, d } = useDayze();
   const isHuman = useIsHuman();
   const tx = useTx();
+  const publicClient = usePublicClient();
   const [rp, setRp] = useState<RpSignatureResponse>();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(() => readPending(chainId, account));
@@ -101,6 +102,17 @@ export function WorldIdVerify() {
 
   const register = async (a: AttestResponse | undefined = readPending(chainId, account)) => {
     if (!a) return;
+    // An attestation saved before the server checked this can never register: drop it and say why
+    const used = await publicClient
+      ?.readContract({ address: d.humanRegistry, abi: HumanRegistryAbi, functionName: "isNullifierUsed", args: [BigInt(a.nullifier)] })
+      .catch(() => false);
+    if (used) {
+      writePending(chainId, account, undefined);
+      setPending(undefined);
+      tx.setError(NULLIFIER_USED_MESSAGE);
+      tx.setStage("error");
+      return;
+    }
     const receipt = await tx.run(() => ({
       address: d.humanRegistry,
       abi: HumanRegistryAbi,

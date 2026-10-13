@@ -1,11 +1,14 @@
 import { hashSignal } from "@worldcoin/idkit-core/hashing";
 import { NextResponse } from "next/server";
-import { isAddress, isHex, type Address, type Hex } from "viem";
+import { createPublicClient, http, isAddress, isHex, type Address, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
+import { rpcUrls, supportedChains } from "@/lib/chains";
+import { HumanRegistryAbi } from "@/lib/contracts/abis";
 import { addresses } from "@/lib/contracts/addresses";
 import {
   ATTESTATION_TTL_SECONDS,
   ATTESTATION_TYPES,
+  NULLIFIER_USED_MESSAGE,
   SELFIE_IDENTIFIERS,
   WORLDID_ACTION,
   attestationDomain,
@@ -93,8 +96,12 @@ export async function POST(request: Request) {
   }
   console.info("[world-id] selfie check verified", { wallet, sybilScore: selfie.sybil_score });
 
-  // 6. Sign the salted commitment. HumanRegistry checks it's unused onchain.
+  // 6. Refuse what register would revert on, so the worker gets the reason instead of "execution reverted"
   const commitment = nullifierCommitment(BigInt(selfie.nullifier), salt);
+  const taken = await registrationBlocker(Number(chainId), humanRegistry, wallet, commitment);
+  if (taken) return fail(taken);
+
+  // 7. Sign the salted commitment. HumanRegistry still checks it's unused onchain.
   const deadline = Math.floor(Date.now() / 1000) + ATTESTATION_TTL_SECONDS;
   const attester = privateKeyToAccount(attesterKey);
   const signature = await attester.signTypedData({
@@ -106,6 +113,33 @@ export async function POST(request: Request) {
 
   const out: AttestResponse = { nullifier: commitment.toString(), deadline, signature };
   return NextResponse.json(out);
+}
+
+/**
+ * Why HumanRegistry.register would revert for this wallet and World ID, or undefined if it wouldn't.
+ * A failed read returns undefined: the contract enforces both rules anyway.
+ */
+async function registrationBlocker(
+  chainId: number,
+  humanRegistry: Address,
+  wallet: Address,
+  commitment: bigint,
+): Promise<string | undefined> {
+  const chain = supportedChains.find((c) => c.id === chainId);
+  if (!chain) return undefined;
+  const client = createPublicClient({ chain, transport: http(rpcUrls[chain.id]) });
+  try {
+    const [isHuman, used] = await Promise.all([
+      client.readContract({ address: humanRegistry, abi: HumanRegistryAbi, functionName: "isHuman", args: [wallet] }),
+      client.readContract({ address: humanRegistry, abi: HumanRegistryAbi, functionName: "isNullifierUsed", args: [commitment] }),
+    ]);
+    if (isHuman) return "This wallet is already verified.";
+    if (used) return NULLIFIER_USED_MESSAGE;
+  } catch (e) {
+    // Name only: viem's messages quote the RPC URL, which carries the provider key
+    console.warn(`[world-id] couldn't pre-check registration, signing anyway: ${e instanceof Error ? e.name : "unknown"}`);
+  }
+  return undefined;
 }
 
 /**
