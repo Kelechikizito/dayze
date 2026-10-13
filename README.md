@@ -4,7 +4,7 @@
 
 **Colosseum Crypto World's Fair** · Base track · Built on Fhenix CoFHE, Privy and World ID
 
-[Demo video](https://youtu.be/dLv6DbLrIic) · [Deployed contracts](#deployments) · [Proof it ran](#proof-it-ran) · [Quick start](#quick-start)
+[Demo video](https://youtu.be/dLv6DbLrIic) · [Pitch video](https://www.loom.com/share/026691c89b8543dfb411dbcc080552f8) · [Deployed contracts](#deployments) · [Proof it ran](#proof-it-ran) · [Quick start](#quick-start)
 
 ---
 
