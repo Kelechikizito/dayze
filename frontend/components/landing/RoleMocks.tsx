@@ -77,7 +77,7 @@ export function CredentialMock() {
           {answered ? "Yes" : phase === 1 ? "checking…" : "—"}
         </span>
       </div>
-      <p className="mt-2 text-mid-grey">Not the salary. Just the answer.</p>
+      <p className="mt-2 text-mid-grey">This answer is all the landlord receives.</p>
     </div>
   );
 }

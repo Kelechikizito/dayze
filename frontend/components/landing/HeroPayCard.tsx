@@ -127,7 +127,7 @@ export function HeroPayCard() {
       <p className="mt-6 text-caption text-soft-charcoal">
         {revealed
           ? "Decrypted in your browser. Only you, your employer and their auditor can do this."
-          : "What everyone else sees onchain: handles, not amounts."}
+          : "What everyone else sees onchain: a ciphertext handle in place of each amount."}
       </p>
     </div>
   );

@@ -18,24 +18,24 @@ import { Badge, ButtonLink, Section } from "@/components/ui";
 const roles: { eyebrow: string; title: string; body: string; href: string; cta: string; mock: ReactNode }[] = [
   {
     eyebrow: "Employers",
-    title: "Run payroll in the open. Keep the numbers closed.",
-    body: "Fund a vault, set a hidden approval threshold, and stream salaries in cUSDC, cARB or cETH.",
+    title: "Run payroll onchain with every amount encrypted",
+    body: "Fund a vault, set an encrypted approval threshold, and pay each period from an encrypted budget in cUSDC, cARB or cETH.",
     href: "/onboarding/employer",
     cta: "Set up an org",
     mock: <EmployerMock />,
   },
   {
     eyebrow: "Workers",
-    title: "Get paid by the second. Prove it only when you choose.",
-    body: "Withdraw any amount, and show a landlord “I earn at least X” without showing your salary.",
+    title: "Get paid by the second and share proof of income when you decide to",
+    body: "Withdraw what you have earned at any time, and show a landlord “I earn at least X” while your salary stays encrypted.",
     href: "/onboarding/employee",
     cta: "Open your pay",
     mock: <CredentialMock />,
   },
   {
     eyebrow: "Auditors",
-    title: "The full ledger, for the one person who should read it.",
-    body: "An employer appoints you. You read every salary and balance, and export the month as CSV.",
+    title: "Read the full ledger once an employer appoints you",
+    body: "You can decrypt every salary and balance written after your appointment, and export the books as a CSV.",
     href: "/audit",
     cta: "Auditor view",
     mock: <AuditorMock />,
@@ -51,20 +51,24 @@ const publicItems = [
 ];
 
 const steps = [
-  { n: "01", title: "Shield", body: "Wrap USDC, ARB or ETH into a confidential token. Balances become ciphertext." },
-  { n: "02", title: "Stream", body: "Fund your vault and create encrypted salary streams. Pay accrues every second." },
-  { n: "03", title: "Approve", body: "Salaries above your hidden threshold wait for k of your n approvers." },
-  { n: "04", title: "Withdraw and prove", body: "Workers withdraw any amount and issue one-bit income credentials that expire." },
+  { n: "01", title: "Shield", body: "Wrap USDC, ARB or ETH into a confidential token, so balances are stored as ciphertext." },
+  {
+    n: "02",
+    title: "Hire",
+    body: "Each salary is encrypted in the browser. Salaries above your encrypted threshold wait for k of your n approvers.",
+  },
+  { n: "03", title: "Run payroll", body: "Each period, an encrypted budget sets aside every worker's pay, which then accrues by the second." },
+  { n: "04", title: "Withdraw and prove", body: "Workers withdraw what they have earned and issue income credentials that answer one question." },
 ];
 
 const roadmap = [
   {
     title: "Invite by email",
-    body: "Type an employee's email and Dayze sends them your invite link. The address is used once and never stored.",
+    body: "Type an employee's email and Dayze sends them your invite link. The address is used once to send it and is not stored.",
   },
   {
     title: "Pay notifications",
-    body: "An email when your stream starts or is approved. It says your pay started, never how much.",
+    body: "An email when your stream starts or is approved. It tells you your pay has started and leaves out the amount.",
   },
 ];
 
@@ -80,12 +84,12 @@ export default function Home() {
         <SiteHeader overlay />
         <div className="relative z-10 mx-auto flex w-full max-w-[1200px] flex-col gap-8 px-6 pt-32 pb-16 md:pb-20">
           <h1 className="max-w-4xl font-classic text-[56px] leading-[0.92] font-normal tracking-[-0.03em] md:text-display lg:text-[112px]">
-            <RiseWords text="Payroll nobody else can read." />
+            <RiseWords text="Payroll that stays private onchain." />
           </h1>
           <div className="fade-up" style={{ animationDelay: "500ms" }}>
             <p className="max-w-xl text-subheading text-pure-white/85">
-              Salaries stream onchain by the second. Every amount stays encrypted. Everyone can see payroll ran. Only the
-              right people see the numbers.
+              Dayze streams salaries onchain by the second and keeps every amount encrypted. Anyone can see that payroll
+              ran, and only the employer, the worker and their auditor can read the numbers.
             </p>
           </div>
           <div className="fade-up" style={{ animationDelay: "650ms" }}>
@@ -99,10 +103,10 @@ export default function Home() {
         <div className="mx-auto grid w-full max-w-[1200px] items-center gap-14 px-6 lg:grid-cols-[1fr_1.1fr]">
           <Reveal className="flex flex-col gap-6">
             <Badge ghost>Live · by the second</Badge>
-            <h2 className={sectionHeading}>Pay that moves while you watch.</h2>
+            <h2 className={sectionHeading}>Your pay grows every second.</h2>
             <p className="max-w-md text-subheading text-soft-charcoal">
-              Your salary accrues every second and you can withdraw any of it, any time. Flip the card to see what the
-              rest of the world gets: ciphertext.
+              Your salary accrues every second, and you can withdraw what has accrued at any time. Switch the card to the
+              explorer view to see what everyone else sees: ciphertext.
             </p>
           </Reveal>
           <Reveal delay={150}>
@@ -130,7 +134,7 @@ export default function Home() {
             <span className={statNumber}>
               <CountUp to={86400} grouped />
             </span>
-            <span className="max-w-[16rem]">times a day your pay moves. It accrues every second.</span>
+            <span className="max-w-[16rem]">times a day your pay updates, once every second</span>
           </Reveal>
         </div>
       </Section>
@@ -140,10 +144,10 @@ export default function Home() {
         <div className="flex flex-col gap-14">
           <Reveal className="flex max-w-3xl flex-col gap-6">
             <Badge ghost>Same transactions</Badge>
-            <h2 className={sectionHeading}>Public ledger. Private numbers.</h2>
+            <h2 className={sectionHeading}>One ledger, read from two places.</h2>
             <p className="max-w-xl text-subheading text-soft-charcoal">
-              Every withdrawal lands onchain. On the explorer its amount is a handle to a ciphertext. In Alice&apos;s app
-              it&apos;s a number.
+              Every withdrawal is recorded onchain. The block explorer shows its amount as a handle to a ciphertext, and
+              Alice&apos;s app decrypts that handle into a number.
             </p>
           </Reveal>
           <ChainVsYou />
@@ -154,7 +158,7 @@ export default function Home() {
       <Section tone="tint" id="roles">
         <div className="flex flex-col gap-14">
           <Reveal>
-            <h2 className={`max-w-3xl ${sectionHeading}`}>Three people. Three views of one payroll.</h2>
+            <h2 className={`max-w-3xl ${sectionHeading}`}>One payroll, with a view for each role.</h2>
           </Reveal>
           <div className="grid gap-4 md:grid-cols-3">
             {roles.map((r, i) => (
@@ -184,9 +188,10 @@ export default function Home() {
         <div className="grid gap-14 lg:grid-cols-[1fr_1.4fr]">
           <Reveal className="flex flex-col gap-6">
             <Badge ghost>What&apos;s private</Badge>
-            <h2 className={sectionHeading}>Honest about the edges.</h2>
+            <h2 className={sectionHeading}>Private by default, from the browser up.</h2>
             <p className="text-subheading text-soft-charcoal">
-              A chain has to show that money moved. Dayze hides how much, and says exactly what it doesn&apos;t hide.
+              A blockchain has to record that money moved. Dayze encrypts the amounts and lists exactly what stays
+              visible.
             </p>
           </Reveal>
           <div className="grid gap-10 sm:grid-cols-2">
