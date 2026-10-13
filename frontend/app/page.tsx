@@ -79,6 +79,30 @@ const roadmap = [
     title: "Pay notifications",
     body: "An email when your stream starts or is approved. It tells you your pay has started and leaves out the amount.",
   },
+  {
+    title: "Badge recovery",
+    body: "If you lose your wallet, a new Selfie Check from another wallet moves your ✓ human badge there. Only you can pass the check, so a thief can't move it.",
+  },
+  {
+    title: "Hidden payees",
+    body: "Encrypted recipient addresses, so who gets paid is as private as how much.",
+  },
+  {
+    title: "Employer verification",
+    body: "An organisation attestation on each income credential, so a landlord can see which company pays you.",
+  },
+  {
+    title: "Portable credentials",
+    body: "Income credentials that can be checked off-chain or on another chain without a CoFHE permit.",
+  },
+  {
+    title: "A payroll agent",
+    body: "An agent that runs payroll each period within the budgets and caps the employer sets.",
+  },
+  {
+    title: "Mainnet",
+    body: "Dayze moves to Base mainnet once Fhenix CoFHE is live there.",
+  },
 ];
 
 const statNumber = "font-classic text-[80px] leading-[0.9] tracking-[-0.03em] md:text-display";
