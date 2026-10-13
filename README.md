@@ -194,6 +194,7 @@ What the tests hold to:
 - **Who is paid is public; how much is not.** Payee addresses and stream existence are visible. Encrypting payees with `eaddress` is the next step.
 - **The approval check reveals one bit:** whether a salary is above or below a hidden threshold. That's the price of letting anyone resolve the policy without a trusted server.
 - **Expiry ends validity, not knowledge.** A landlord who decrypted "yes" still knows it. Credentials are "as of issuance", so short expiries keep them honest.
+- **A verified World ID can't move to a new wallet yet.** `HumanRegistry` allows one wallet per person, and the link is permanent. If that wallet is lost or stolen, it keeps the ✓ human badge, and its owner can't verify a new wallet.
 - **The World ID attester is trusted.** It can mark a wallet as human, but it can't read salaries or move funds. The owner can rotate it with `setAttester`.
 - **Removing an auditor doesn't revoke past access.** `FHE.allow` grants can't be withdrawn, so new handles go only to current auditors.
 
@@ -219,6 +220,7 @@ What the tests hold to:
 - **Hidden payees.** Encrypt recipient addresses with `eaddress`, so who gets paid is as private as how much.
 - **Employer verification.** Attach an organisation attestation to credentials. Today a credential proves what a payroll contract pays, not which company runs it.
 - **Portable credentials.** A SNARK wrapper, so a credential can be checked off-chain or on another chain without a CoFHE permit.
+- **Badge recovery.** A new Selfie Check from another wallet moves the ✓ human badge there and removes it from the old one. Only the person can pass the check, so a thief can't move it, and each person still has one verified wallet.
 - **A payroll agent.** It runs payroll each period within employer-set budgets and caps, so nobody has to press the button.
 - **Mainnet**, once CoFHE ships on Base mainnet.
 
