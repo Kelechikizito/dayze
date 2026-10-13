@@ -50,6 +50,15 @@ const publicItems = [
   "Which auditors an employer appointed",
 ];
 
+/** What the app itself does with your data, on top of what the contracts encrypt */
+const principles = [
+  "Amounts are encrypted in your browser before any transaction is sent.",
+  "Amounts are decrypted in your browser, with a permit only you can sign.",
+  "The auditor's CSV is built on their own computer and is never uploaded.",
+  "A landlord gets a yes or no answer to one question, and the credential expires.",
+  "World ID proves a worker is a real person while their face and name stay in World App.",
+];
+
 const steps = [
   { n: "01", title: "Shield", body: "Wrap USDC, ARB or ETH into a confidential token, so balances are stored as ciphertext." },
   {
@@ -193,6 +202,13 @@ export default function Home() {
               A blockchain has to record that money moved. Dayze encrypts the amounts and lists exactly what stays
               visible.
             </p>
+            <ul className="flex flex-col pt-2">
+              {principles.map((p) => (
+                <li key={p} className="border-t-[1.5px] border-gloss-black/10 py-3 text-soft-charcoal">
+                  {p}
+                </li>
+              ))}
+            </ul>
           </Reveal>
           <div className="grid gap-10 sm:grid-cols-2">
             {[
